@@ -25,7 +25,7 @@
     "ls21"
   ],
   "author": "Lara Srinath",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "engines": {
     "node": ">=18.0.0"
   },
