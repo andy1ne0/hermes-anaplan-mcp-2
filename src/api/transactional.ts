@@ -108,6 +108,54 @@ export class TransactionalApi {
     );
   }
 
+  async createList(workspaceId: string, modelId: string, name: string, description?: string) {
+    const body: Record<string, string> = { name };
+    if (description) body.description = description;
+    return this.client.post(
+      `/workspaces/${workspaceId}/models/${modelId}/lists`,
+      body,
+    );
+  }
+
+  async createModule(workspaceId: string, modelId: string, name: string, description?: string) {
+    const body: Record<string, string> = { name };
+    if (description) body.description = description;
+    return this.client.post(
+      `/workspaces/${workspaceId}/models/${modelId}/modules`,
+      body,
+    );
+  }
+
+  async addLineItems(
+    workspaceId: string,
+    modelId: string,
+    moduleId: string,
+    items: Array<{
+      name: string;
+      format?: string;
+      formula?: string;
+      summary?: string;
+      appliesTo?: Array<Record<string, string>>;
+    }>,
+  ) {
+    return this.client.post(
+      `/workspaces/${workspaceId}/models/${modelId}/modules/${moduleId}/lineItems`,
+      { items },
+    );
+  }
+
+  async deleteModule(workspaceId: string, modelId: string, moduleId: string) {
+    return this.client.delete(
+      `/workspaces/${workspaceId}/models/${modelId}/modules/${moduleId}`,
+    );
+  }
+
+  async deleteList(workspaceId: string, modelId: string, listId: string) {
+    return this.client.delete(
+      `/workspaces/${workspaceId}/models/${modelId}/lists/${listId}`,
+    );
+  }
+
   private truncateResponse(data: any): any {
     const json = JSON.stringify(data);
     if (json.length <= MAX_RESPONSE_CHARS) return data;

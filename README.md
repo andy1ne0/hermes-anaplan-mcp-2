@@ -260,10 +260,10 @@ These apply only to `npm run start:http` / remote MCP deployments:
 
 ### What the server can do
 
-This server has **full access** to whatever your Anaplan credentials allow. The 70 tools cover both read and write operations:
+This server has **full access** to whatever your Anaplan credentials allow. The 75 tools cover both read and write operations:
 
 - **Read-only tools** (safe to use freely): `show_*` tools, `read_cells`, `get_list_items`, `download_file`, `get_action_status`
-- **Write tools** (modify data): `write_cells`, `add_list_items`, `update_list_items`, `delete_list_items`
+- **Write tools** (modify data): `write_cells`, `add_list_items`, `update_list_items`, `delete_list_items`, `create_list`, `create_module`, `add_lineitem`, `delete_list`, `delete_module`
 - **Action tools** (trigger Anaplan processes): `run_import`, `run_export`, `run_process`, `run_delete`
 - **Admin tools** (model management): `close_model`, `open_model`, `bulk_delete_models`, `set_currentperiod`, `set_fiscalyear`
 
@@ -356,7 +356,7 @@ Claude Desktop prompts you before each tool call. You'll see the tool name and p
 | `reset_list_index` | Reset list item index numbering<br>`POST /models/{modelId}/lists/{listId}/resetIndex` |
 | `download_optimizer_log` | Download Optimizer solver log for a completed action<br>`GET .../optimizeActions/{actionId}/tasks/{correlationId}/solutionLogs` |
 
-### Transactional Operations (5 tools)
+### Transactional Operations (10 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -365,6 +365,11 @@ Claude Desktop prompts you before each tool call. You'll see the tool name and p
 | `add_list_items` | Add new items to a list<br>`POST .../lists/{listId}/items?action=add` |
 | `update_list_items` | Update existing list items<br>`PUT .../lists/{listId}/items` |
 | `delete_list_items` | Delete list items<br>`POST .../lists/{listId}/items?action=delete` |
+| `create_list` | Create a new list in a model<br>`POST /workspaces/{workspaceId}/models/{modelId}/lists` |
+| `create_module` | Create a new module in a model<br>`POST /workspaces/{workspaceId}/models/{modelId}/modules` |
+| `add_lineitem` | Add one or more line items to a module<br>`POST /workspaces/{workspaceId}/models/{modelId}/modules/{moduleId}/lineItems` |
+| `delete_module` | Delete a module from a model (requires `force=true`)<br>`DELETE /workspaces/{workspaceId}/models/{modelId}/modules/{moduleId}` |
+| `delete_list` | Delete a list from a model (requires `force=true`)<br>`DELETE /workspaces/{workspaceId}/models/{modelId}/lists/{listId}` |
 
 ## Orchestration Guide
 
@@ -377,7 +382,7 @@ The server exposes a built-in MCP resource (`anaplan://orchestration-guide`) tha
 - **Bulk exports** -- single-step run_export handles the full lifecycle
 - **Processes** -- run chained actions, monitor with get_action_status
 - **Large volume reads** -- create request, poll until complete, download pages, clean up
-- **List mutations** -- find list items, then add/update/delete
+- **List & structural mutations** -- create/delete lists and modules, add line items, then add/update/delete list items
 
 Every tool description also includes prerequisite hints ("Use show_imports first to find importId") and parameter descriptions explain where each value comes from ("from show_lineitems or show_alllineitems"). Key workflow tools append "Next steps" guidance to their responses.
 

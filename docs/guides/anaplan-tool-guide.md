@@ -159,7 +159,7 @@ Apply these principles when using the MCP tools against live models:
 
 ---
 
-### Transactional Tools (5) — direct cell and list writes
+### Transactional Tools (10) — direct cell, list, and structural writes
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
@@ -168,6 +168,11 @@ Apply these principles when using the MCP tools against live models:
 | `add_list_items` | Add new items to a list | Max 100k items per call. |
 | `update_list_items` | Update existing list items | Must include `code` if item already has one. |
 | `delete_list_items` | Remove items from a list | Identify by id or code, not both. |
+| `create_list` | Create a new list in the model | Model must be unlocked. |
+| `create_module` | Create a new module in the model | Model must be unlocked. |
+| `add_lineitem` | Add one or more line items to a module | Supports format, formula, summary, and appliesTo. |
+| `delete_module` | Delete a module from the model | Requires `force=true`. Irreversible. |
+| `delete_list` | Delete a list from the model | Requires `force=true`. Irreversible. |
 
 ---
 
@@ -319,9 +324,26 @@ Key points:
 - lookup_dimensionitems is faster than show_dimensionitems when you already know names
 ```
 
-### Manage List Items
+### Structural Changes and List Items
 
 ```
+Q: "Create a new list or module"
+1. [Optional] show_lists / show_modules → inspect current model structure first
+2. create_list(workspace, model, name)
+   OR create_module(workspace, model, name)
+3. Verify with show_lists / show_modules
+
+Q: "Add line items to module X"
+1. show_modules             → get moduleId
+2. [Optional] show_lineitems → inspect existing line items first
+3. add_lineitem(workspace, model, moduleId, items[])
+4. Verify with show_lineitems
+
+Q: "Delete a list or module"
+1. [Optional] show_listmetadata / show_moduledetails → inspect what will be removed
+2. delete_list(workspace, model, listId, force=true)
+   OR delete_module(workspace, model, moduleId, force=true)
+
 Q: "Add items to list X"
 1. show_lists             → get listId
 2. add_list_items(workspace, model, listId, items[])

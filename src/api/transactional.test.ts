@@ -313,4 +313,68 @@ describe("TransactionalApi", () => {
       expect(result.pages).toHaveLength(1);
     });
   });
+
+  describe("structural CRUD", () => {
+    it("createList() posts to /workspaces/{wsId}/models/{mId}/lists", async () => {
+      const client = mockClient();
+      const api = new TransactionalApi(client);
+
+      await api.createList("ws1", "m1", "My List", "A test list");
+
+      expect(client.post).toHaveBeenCalledWith(
+        "/workspaces/ws1/models/m1/lists",
+        { name: "My List", description: "A test list" }
+      );
+    });
+
+    it("createModule() posts to /workspaces/{wsId}/models/{mId}/modules", async () => {
+      const client = mockClient();
+      const api = new TransactionalApi(client);
+
+      await api.createModule("ws1", "m1", "My Module", "A test module");
+
+      expect(client.post).toHaveBeenCalledWith(
+        "/workspaces/ws1/models/m1/modules",
+        { name: "My Module", description: "A test module" }
+      );
+    });
+
+    it("addLineItems() posts to /workspaces/{wsId}/models/{mId}/modules/{modId}/lineItems", async () => {
+      const client = mockClient();
+      const api = new TransactionalApi(client);
+      const items = [
+        { name: "Revenue", format: "NUMBER", formula: "Price * Units", summary: "SUM" },
+        { name: "Notes", format: "TEXT" },
+      ];
+
+      await api.addLineItems("ws1", "m1", "mod1", items);
+
+      expect(client.post).toHaveBeenCalledWith(
+        "/workspaces/ws1/models/m1/modules/mod1/lineItems",
+        { items }
+      );
+    });
+
+    it("deleteModule() deletes /workspaces/{wsId}/models/{mId}/modules/{modId}", async () => {
+      const client = mockClient();
+      const api = new TransactionalApi(client);
+
+      await api.deleteModule("ws1", "m1", "mod1");
+
+      expect(client.delete).toHaveBeenCalledWith(
+        "/workspaces/ws1/models/m1/modules/mod1"
+      );
+    });
+
+    it("deleteList() deletes /workspaces/{wsId}/models/{mId}/lists/{listId}", async () => {
+      const client = mockClient();
+      const api = new TransactionalApi(client);
+
+      await api.deleteList("ws1", "m1", "list1");
+
+      expect(client.delete).toHaveBeenCalledWith(
+        "/workspaces/ws1/models/m1/lists/list1"
+      );
+    });
+  });
 });

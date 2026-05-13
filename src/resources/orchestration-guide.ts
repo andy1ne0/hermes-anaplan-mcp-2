@@ -395,14 +395,27 @@ run_export is a fully self-contained tool -- it handles the entire lifecycle (ex
 
 **WARNING:** Delete actions are irreversible. The action deletes items from a list based on a boolean control line item -- items marked true are removed permanently. Always check show_actiondetails first to understand what will be deleted.
 
-## Workflow 7: List Item Mutations
+## Workflow 7: Structural Changes and List Item Mutations
 
 \`\`\`
+Create structures:
+1. [Optional] show_lists / show_modules -> inspect current structure first
+2. create_list(workspaceId, modelId, name)
+   OR create_module(workspaceId, modelId, name)
+3. [Optional] add_lineitem(workspaceId, modelId, moduleId, items)
+4. Verify with show_lists / show_modules / show_lineitems
+
+Change list items:
 1. show_lists(workspaceId, modelId) -> get listId
 2. get_list_items(workspaceId, modelId, listId) -> see existing items, IDs, and codes
 3. add_list_items(workspaceId, modelId, listId, items)
    OR update_list_items(workspaceId, modelId, listId, items)
    OR delete_list_items(workspaceId, modelId, listId, items)
+
+Delete structures:
+1. [Optional] show_moduledetails / show_listmetadata -> inspect dependencies and item counts
+2. delete_module(workspaceId, modelId, moduleId, force=true)
+   OR delete_list(workspaceId, modelId, listId, force=true)
 \`\`\`
 
 **Critical: update_list_items and the code field:**

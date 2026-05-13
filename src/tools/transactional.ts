@@ -101,4 +101,91 @@ export function registerTransactionalTools(server: McpServer, api: Transactional
     const result = await api.deleteListItems(wId, mId, lId, items);
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   });
+
+  server.tool("create_list", "Create a new list in an Anaplan model. The model must be unlocked. Returns the created list metadata (id, name).", {
+    workspaceId: z.string().describe("Anaplan workspace ID or name"),
+    modelId: z.string().describe("Anaplan model ID or name"),
+    name: z.string().describe("Name for the new list"),
+    description: z.string().optional().describe("Optional description for the list"),
+  }, async ({ workspaceId, modelId, name, description }) => {
+    const wId = await resolver.resolveWorkspace(workspaceId);
+    const mId = await resolver.resolveModel(wId, modelId);
+    const result = await api.createList(wId, mId, name, description);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool("create_module", "Create a new module in an Anaplan model. The model must be unlocked. Returns the created module metadata (id, name).", {
+    workspaceId: z.string().describe("Anaplan workspace ID or name"),
+    modelId: z.string().describe("Anaplan model ID or name"),
+    name: z.string().describe("Name for the new module"),
+    description: z.string().optional().describe("Optional description for the module"),
+  }, async ({ workspaceId, modelId, name, description }) => {
+    const wId = await resolver.resolveWorkspace(workspaceId);
+    const mId = await resolver.resolveModel(wId, modelId);
+    const result = await api.createModule(wId, mId, name, description);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool("add_lineitem", "Add one or more line items to a module. Supports format, formula, summary method, and appliesTo dimensions. Names in appliesTo are resolved to IDs automatically.", {
+    workspaceId: z.string().describe("Anaplan workspace ID or name"),
+    modelId: z.string().describe("Anaplan model ID or name"),
+    moduleId: z.string().describe("Module ID or name to add line items to"),
+    items: z.array(z.object({
+      name: z.string().describe("Line item name"),
+      format: z.string().optional().describe("Data format: NUMBER, TEXT, BOOLEAN, DATE, TIME PERIOD, LIST, NO FORMAT, etc."),
+      formula: z.string().optional().describe("Anaplan formula for the line item"),
+      summary: z.string().optional().describe("Summary method: NONE, SUM, MIN, MAX, AVERAGE, ANY, TEXT, FIRSTNONBLANK, LASTNONBLANK"),
+      appliesTo: z.array(z.string()).optional().describe("Dimension names or IDs the line item applies to (e.g. list names, 'Time', 'Versions')"),
+    })).describe("Line items to create"),
+  }, async ({ workspaceId, modelId, moduleId, items }) => {
+    const wId = await resolver.resolveWorkspace(workspaceId);
+    const mId = await resolver.resolveModel(wId, modelId);
+    const modId = await resolver.resolveModule(wId, mId, moduleId);
+
+    const resolvedItems = items.map((item) => {
+      const resolved: Record<string, any> = { name: item.name };
+      if (item.format) resolved.format = item.format;
+      if (item.formula) resolved.formula = item.formula;
+      if (item.summary) resolved.summary = item.summary;
+      if (item.appliesTo) {
+        resolved.appliesTo = item.appliesTo.map((dim) => /^[0-9a-fA-F]{24,}$/.test(dim) ? { id: dim } : { name: dim });
+      }
+      return resolved;
+    });
+
+    const result = await api.addLineItems(wId, mId, modId, resolvedItems as Parameters<typeof api.addLineItems>[3]);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool("delete_module", "Delete a module from an Anaplan model (WARNING: irreversible). Requires force=true to confirm. The model must be unlocked.", {
+    workspaceId: z.string().describe("Anaplan workspace ID or name"),
+    modelId: z.string().describe("Anaplan model ID or name"),
+    moduleId: z.string().describe("Module ID or name to delete"),
+    force: z.boolean().describe("Must be true to confirm deletion. Deleting a module is irreversible."),
+  }, async ({ workspaceId, modelId, moduleId, force }) => {
+    if (!force) {
+      return { content: [{ type: "text", text: JSON.stringify({ warning: "Module deletion is irreversible. Set force=true to confirm deletion.", moduleId, modelId }, null, 2) }] };
+    }
+    const wId = await resolver.resolveWorkspace(workspaceId);
+    const mId = await resolver.resolveModel(wId, modelId);
+    const modId = await resolver.resolveModule(wId, mId, moduleId);
+    const result = await api.deleteModule(wId, mId, modId);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool("delete_list", "Delete a list from an Anaplan model (WARNING: irreversible). Requires force=true to confirm. Lists with existing items will produce a warning.", {
+    workspaceId: z.string().describe("Anaplan workspace ID or name"),
+    modelId: z.string().describe("Anaplan model ID or name"),
+    listId: z.string().describe("List ID or name to delete"),
+    force: z.boolean().describe("Must be true to confirm deletion. Deleting a list is irreversible."),
+  }, async ({ workspaceId, modelId, listId, force }) => {
+    if (!force) {
+      return { content: [{ type: "text", text: JSON.stringify({ warning: "List deletion is irreversible. Set force=true to confirm deletion.", listId, modelId }, null, 2) }] };
+    }
+    const wId = await resolver.resolveWorkspace(workspaceId);
+    const mId = await resolver.resolveModel(wId, modelId);
+    const lId = await resolver.resolveList(wId, mId, listId);
+    const result = await api.deleteList(wId, mId, lId);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  });
 }
