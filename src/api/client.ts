@@ -15,6 +15,10 @@ export class AnaplanClient {
     this.auth = auth;
   }
 
+  async patch<T = any>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>("PATCH", path, body);
+  }
+
   async get<T = any>(path: string): Promise<T> {
     return this.request<T>("GET", path);
   }
@@ -93,7 +97,10 @@ export class AnaplanClient {
       };
 
       const options: RequestInit = { method, headers };
-      if (body !== undefined) {
+      if (method === "POST" || method === "PUT" || method === "PATCH") {
+        headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(body !== undefined ? body : {});
+      } else if (body !== undefined) {
         headers["Content-Type"] = "application/json";
         options.body = JSON.stringify(body);
       }

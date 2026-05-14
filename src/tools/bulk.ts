@@ -293,14 +293,14 @@ export function registerBulkTools(server: McpServer, apis: BulkApis, resolver: N
   });
 
   // Model management
-  server.tool("close_model", "Close (archive) a model. Requires workspace admin. Must be closed before bulk_delete_models.", {
+  server.tool("close_model", "Close (unload) a model from server memory. This is NOT the same as archiving — the model remains in the workspace quota. For archiving, use set_modelmode with mode ARCHIVED instead.", {
     workspaceId: z.string().describe("Anaplan workspace ID or name"),
     modelId: z.string().describe("Anaplan model ID or name"),
   }, async ({ workspaceId, modelId }) => {
     const wId = await resolver.resolveWorkspace(workspaceId);
     const mId = await resolver.resolveModel(wId, modelId);
     await apis.modelManagement.close(wId, mId);
-    return { content: [{ type: "text" as const, text: `Model ${mId} closed successfully.` }] };
+    return { content: [{ type: "text" as const, text: `Model ${mId} closed (unloaded) successfully. Use set_modelmode to change model mode (e.g., ARCHIVED).` }] };
   });
 
   server.tool("open_model", "Open (wake up) a model. May return 202 if model is loading.", {
@@ -311,6 +311,17 @@ export function registerBulkTools(server: McpServer, apis: BulkApis, resolver: N
     const mId = await resolver.resolveModel(wId, modelId);
     await apis.modelManagement.open(wId, mId);
     return { content: [{ type: "text" as const, text: `Model ${mId} open request sent. Model may take time to fully load.` }] };
+  });
+
+  server.tool("set_modelmode", "Change model mode (UNLOCKED, LOCKED, ARCHIVED, PRODUCTION, PRODUCTION_MAINTENANCE). NOTE: The Anaplan Transactional API v2.0 does not support this operation on most tenants — returns 405 Method Not Allowed. When the API blocks this, use the Anaplan UI: Model Management → select model → Change Mode. Future: Playwright-based UI automation may be added as a fallback.", {
+    workspaceId: z.string().describe("Anaplan workspace ID or name"),
+    modelId: z.string().describe("Anaplan model ID or name. Name resolution NOT supported — use the model ID from show_models."),
+    mode: z.enum(["UNLOCKED", "LOCKED", "ARCHIVED", "PRODUCTION", "PRODUCTION_MAINTENANCE"]).describe("Target model mode. ARCHIVED frees workspace quota. LOCKED makes read-only. PRODUCTION enables ALM deployment."),
+  }, async ({ workspaceId, modelId, mode }) => {
+    const wId = await resolver.resolveWorkspace(workspaceId);
+    // set_modelmode requires exact model ID — name resolution not supported for PATCH endpoints
+    const result = await apis.modelManagement.setMode(wId, modelId, mode);
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   });
 
   server.tool("bulk_delete_models", "Bulk delete closed models (WARNING: irreversible). Models must be closed first.", {
