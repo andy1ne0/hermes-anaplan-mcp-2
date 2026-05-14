@@ -175,37 +175,48 @@ export class AnaplanUI {
     try {
       const base = REGION_BASE_URLS[this.opts.region] ?? REGION_BASE_URLS.default;
 
-      await page.goto(base + "/model/" + workspaceId + "/" + modelId, {
+      // Navigate directly to model (Anaplan SPA)
+      // URL format: {base}/models/{modelId}
+      await page.goto(base + "/models/" + modelId, {
         waitUntil: "networkidle",
         timeout: 60000,
       });
       await page.waitForTimeout(5000);
 
-      // Click "Lists" tab
-      const listsTab = page.locator("text=Lists").first();
-      await listsTab.waitFor({ state: "visible", timeout: 10000 });
+      // Wait for model to fully load (SPA takes time)
+      // Look for the main nav — either "Settings" tab or "Modules" tab
+      const settingsTab = page.locator('[data-testid="settings"], [aria-label="Settings"], text=Settings').first();
+      await settingsTab.waitFor({ state: "visible", timeout: 30000 }).catch(async () => {
+        // Model might need to load first — wait longer
+        await page.waitForTimeout(15000);
+      });
+      await settingsTab.click();
+      await page.waitForTimeout(2000);
+
+      // Click "Lists" in left nav (inside Settings)
+      const listsTab = page.locator('[data-testid="lists"], [aria-label="Lists"]').first()
+        .or(page.locator("a, button").filter({ hasText: /^Lists$/ }).first());
+      await listsTab.waitFor({ state: "visible", timeout: 15000 });
       await listsTab.click();
       await page.waitForTimeout(2000);
 
-      // Click Add
-      const addBtn = page.locator('[aria-label="Add list"], [data-testid="add-list"]').first()
-        .or(page.locator("button").filter({ hasText: "Add" }).first());
+      // Click "Add" or "Create" button
+      const addBtn = page.locator('[aria-label="Add list"], [data-testid="add-list"], button').filter({ hasText: /^Add$|^Create$|^New$/ }).first();
       await addBtn.click();
+      await page.waitForTimeout(1000);
 
       // Fill name
-      const nameInput = page.locator('input[name="name"], input[placeholder*="name"]').first();
+      const nameInput = page.locator('input[name="name"], input[placeholder*="name" i], input[placeholder*="List" i]').first();
       await nameInput.fill(name);
       if (description) {
-        const descInput = page.locator('input[name="description"], textarea[name="description"]').first();
+        const descInput = page.locator('textarea[name="description"], input[name="description"]').first();
         await descInput.fill(description);
       }
 
-      // Save
-      const saveBtn = page.locator("text=Save").first()
-        .or(page.locator("text=Create").first())
-        .or(page.locator("text=OK").first());
-      await saveBtn.click();
-      await page.waitForTimeout(3000);
+      // Confirm / Save
+      const confirmBtn = page.locator('button').filter({ hasText: /^Save$|^Create$|^OK$|^Confirm$/ }).first();
+      await confirmBtn.click();
+      await page.waitForTimeout(2000);
 
       this.resetIdleTimer();
       return { success: true, message: 'List "' + name + '" created via Anaplan UI.' };
@@ -235,14 +246,23 @@ export class AnaplanUI {
     try {
       const base = REGION_BASE_URLS[this.opts.region] ?? REGION_BASE_URLS.default;
 
-      await page.goto(base + "/model/" + workspaceId + "/" + modelId, {
+      // Navigate directly to model (Anaplan SPA)
+      await page.goto(base + "/models/" + modelId, {
         waitUntil: "networkidle",
         timeout: 60000,
       });
       await page.waitForTimeout(5000);
 
-      // Click "Modules" tab
-      const modulesTab = page.locator("text=Modules").first();
+      // Navigate to Settings → Modules
+      const settingsTab = page.locator('[data-testid="settings"], [aria-label="Settings"], text=Settings').first();
+      await settingsTab.waitFor({ state: "visible", timeout: 30000 }).catch(async () => {
+        await page.waitForTimeout(15000);
+      });
+      await settingsTab.click();
+      await page.waitForTimeout(2000);
+
+      const modulesTab = page.locator('[data-testid="modules"], [aria-label="Modules"]').first()
+        .or(page.locator("a, button").filter({ hasText: /^Modules$/ }).first());
       await modulesTab.waitFor({ state: "visible", timeout: 10000 });
       await modulesTab.click();
       await page.waitForTimeout(2000);
