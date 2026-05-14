@@ -108,6 +108,8 @@ export class TransactionalApi {
     );
   }
 
+  // ── Structural CRUD ──────────────────────────────────────────────
+
   async createList(workspaceId: string, modelId: string, name: string, description?: string) {
     const body: Record<string, string> = { name };
     if (description) body.description = description;

@@ -2,9 +2,10 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { TransactionalApi } from "../api/transactional.js";
 import type { NameResolver } from "../resolver.js";
+import type { AnaplanUI } from "../ui/anaplanUI.js";
 
 // Cell write dimensions max: 21 per intersection (ls21)
-export function registerTransactionalTools(server: McpServer, api: TransactionalApi, resolver: NameResolver) {
+export function registerTransactionalTools(server: McpServer, api: TransactionalApi, resolver: NameResolver, ui?: AnaplanUI) {
   server.tool("read_cells", "Read cell data from a module view. Use pages param to select specific page dimensions. For reports across ALL products/customers, use run_export instead -- do NOT call read_cells in a loop per item. viewId can be a saved view or moduleId (default). For >1M cells, use create_view_readrequest.", {
     workspaceId: z.string().describe("Anaplan workspace ID or name"),
     modelId: z.string().describe("Anaplan model ID or name"),
@@ -102,7 +103,9 @@ export function registerTransactionalTools(server: McpServer, api: Transactional
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   });
 
-  server.tool("create_list", "Create a new list in an Anaplan model. The model must be unlocked. Returns the created list metadata (id, name).", {
+  // ── Structural CRUD tools ─────────────────────────────────────────
+
+  server.tool("create_list", "Create a new list in an Anaplan model. The model must be unlocked. Returns the created list metadata (id, name). WARNING: The Transactional API v2.0 returns 405 on some tenants. When Playwright UI automation is enabled (ANAPLAN_PLAYWRIGHT_ENABLED=true), this tool automatically falls back to browser automation.", {
     workspaceId: z.string().describe("Anaplan workspace ID or name"),
     modelId: z.string().describe("Anaplan model ID or name"),
     name: z.string().describe("Name for the new list"),
@@ -110,11 +113,19 @@ export function registerTransactionalTools(server: McpServer, api: Transactional
   }, async ({ workspaceId, modelId, name, description }) => {
     const wId = await resolver.resolveWorkspace(workspaceId);
     const mId = await resolver.resolveModel(wId, modelId);
-    const result = await api.createList(wId, mId, name, description);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    try {
+      const result = await api.createList(wId, mId, name, description);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (err: any) {
+      if ((err?.message?.includes("405") || err?.message?.includes("Method Not Allowed")) && ui?.enabled) {
+        const uiResult = await ui.createList(wId, mId, name, description);
+        return { content: [{ type: "text", text: uiResult.success ? JSON.stringify(uiResult.data, null, 2) : `API 405 + UI fallback failed: ${uiResult.message}` }] };
+      }
+      throw err;
+    }
   });
 
-  server.tool("create_module", "Create a new module in an Anaplan model. The model must be unlocked. Returns the created module metadata (id, name).", {
+  server.tool("create_module", "Create a new module in an Anaplan model. The model must be unlocked. Returns the created module metadata (id, name). WARNING: The Transactional API v2.0 returns 405 on some tenants. When Playwright UI automation is enabled (ANAPLAN_PLAYWRIGHT_ENABLED=true), this tool automatically falls back to browser automation.", {
     workspaceId: z.string().describe("Anaplan workspace ID or name"),
     modelId: z.string().describe("Anaplan model ID or name"),
     name: z.string().describe("Name for the new module"),
@@ -122,8 +133,16 @@ export function registerTransactionalTools(server: McpServer, api: Transactional
   }, async ({ workspaceId, modelId, name, description }) => {
     const wId = await resolver.resolveWorkspace(workspaceId);
     const mId = await resolver.resolveModel(wId, modelId);
-    const result = await api.createModule(wId, mId, name, description);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    try {
+      const result = await api.createModule(wId, mId, name, description);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (err: any) {
+      if ((err?.message?.includes("405") || err?.message?.includes("Method Not Allowed")) && ui?.enabled) {
+        const uiResult = await ui.createModule(wId, mId, name, description);
+        return { content: [{ type: "text", text: uiResult.success ? JSON.stringify(uiResult.data, null, 2) : `API 405 + UI fallback failed: ${uiResult.message}` }] };
+      }
+      throw err;
+    }
   });
 
   server.tool("add_lineitem", "Add one or more line items to a module. Supports format, formula, summary method, and appliesTo dimensions. Names in appliesTo are resolved to IDs automatically.", {
@@ -142,13 +161,21 @@ export function registerTransactionalTools(server: McpServer, api: Transactional
     const mId = await resolver.resolveModel(wId, modelId);
     const modId = await resolver.resolveModule(wId, mId, moduleId);
 
+    // Resolve appliesTo dimension names to IDs where needed
     const resolvedItems = items.map((item) => {
       const resolved: Record<string, any> = { name: item.name };
       if (item.format) resolved.format = item.format;
       if (item.formula) resolved.formula = item.formula;
       if (item.summary) resolved.summary = item.summary;
       if (item.appliesTo) {
-        resolved.appliesTo = item.appliesTo.map((dim) => /^[0-9a-fA-F]{24,}$/.test(dim) ? { id: dim } : { name: dim });
+        resolved.appliesTo = item.appliesTo.map((dim) => {
+          // If it looks like a 24+ char hex ID, pass it through; otherwise wrap as name ref
+          if (/^[0-9a-fA-F]{24,}$/.test(dim)) {
+            return { id: dim };
+          }
+          // Could be a well-known dimension like "Time" or "Versions" — pass as name
+          return { name: dim };
+        });
       }
       return resolved;
     });

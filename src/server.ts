@@ -18,6 +18,7 @@ import { VersionsApi } from "./api/versions.js";
 import { UsersApi } from "./api/users.js";
 import { LargeReadsApi } from "./api/largeReads.js";
 import { OptimizerApi } from "./api/optimizer.js";
+import { AnaplanUI } from "./ui/anaplanUI.js";
 import { NameResolver } from "./resolver.js";
 import { registerExplorationTools } from "./tools/exploration.js";
 import { registerBulkTools } from "./tools/bulk.js";
@@ -45,6 +46,12 @@ export function createServer(auth: AuthManager = AuthManager.fromEnv()): McpServ
   const largeReads = new LargeReadsApi(client);
   const optimizer = new OptimizerApi(client);
 
+  // Playwright UI automation (lazy browser, disabled by default)
+  // Enable with ANAPLAN_PLAYWRIGHT_ENABLED=true in .env
+  const ui = (process.env.ANAPLAN_PLAYWRIGHT_ENABLED === "true")
+    ? AnaplanUI.fromEnv()
+    : AnaplanUI.disabled();
+
   const resolver = new NameResolver({
     workspaces, models, modules, lists, imports, exports, processes, files, actions,
   });
@@ -58,9 +65,9 @@ export function createServer(auth: AuthManager = AuthManager.fromEnv()): McpServ
 
   registerBulkTools(server, {
     imports, exports, processes, files, client, modelManagement, calendar, versions, lists, largeReads, actions, optimizer,
-  }, resolver);
+  }, resolver, ui);
 
-  registerTransactionalTools(server, transactional, resolver);
+  registerTransactionalTools(server, transactional, resolver, ui);
 
   server.resource(
     "orchestration-guide",

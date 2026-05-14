@@ -16,6 +16,7 @@ import type { ListsApi } from "../api/lists.js";
 import type { LargeReadsApi } from "../api/largeReads.js";
 import type { ActionsApi } from "../api/actions.js";
 import type { OptimizerApi } from "../api/optimizer.js";
+import type { AnaplanUI } from "../ui/anaplanUI.js";
 import { withNextSteps } from "./hints.js";
 
 // Bulk concurrency ceiling: 21 parallel tasks per model (ls21)
@@ -87,7 +88,7 @@ function buildTextPreview(text: string): string {
     : text;
 }
 
-export function registerBulkTools(server: McpServer, apis: BulkApis, resolver: NameResolver) {
+export function registerBulkTools(server: McpServer, apis: BulkApis, resolver: NameResolver, ui?: AnaplanUI) {
   server.tool("run_export", "Execute an export and return the data inline. Best for bulk reports across all products/customers/regions -- prefer this over calling read_cells in a loop. Handles the full run-wait-download lifecycle. Use show_exports first.", {
     workspaceId: z.string().describe("Anaplan workspace ID or name"),
     modelId: z.string().describe("Anaplan model ID or name"),
@@ -313,15 +314,24 @@ export function registerBulkTools(server: McpServer, apis: BulkApis, resolver: N
     return { content: [{ type: "text" as const, text: `Model ${mId} open request sent. Model may take time to fully load.` }] };
   });
 
-  server.tool("set_modelmode", "Change model mode (UNLOCKED, LOCKED, ARCHIVED, PRODUCTION, PRODUCTION_MAINTENANCE). NOTE: The Anaplan Transactional API v2.0 does not support this operation on most tenants — returns 405 Method Not Allowed. When the API blocks this, use the Anaplan UI: Model Management → select model → Change Mode. Future: Playwright-based UI automation may be added as a fallback.", {
+  server.tool("set_modelmode", "Change model mode (UNLOCKED, LOCKED, ARCHIVED, PRODUCTION, PRODUCTION_MAINTENANCE). The Anaplan Transactional API v2.0 does not support this on most tenants (returns 405). When Playwright UI automation is enabled (ANAPLAN_PLAYWRIGHT_ENABLED=true), this tool automatically falls back to browser automation. Otherwise, use the Anaplan UI: Model Management → select model → Change Mode.", {
     workspaceId: z.string().describe("Anaplan workspace ID or name"),
     modelId: z.string().describe("Anaplan model ID or name. Name resolution NOT supported — use the model ID from show_models."),
     mode: z.enum(["UNLOCKED", "LOCKED", "ARCHIVED", "PRODUCTION", "PRODUCTION_MAINTENANCE"]).describe("Target model mode. ARCHIVED frees workspace quota. LOCKED makes read-only. PRODUCTION enables ALM deployment."),
   }, async ({ workspaceId, modelId, mode }) => {
     const wId = await resolver.resolveWorkspace(workspaceId);
     // set_modelmode requires exact model ID — name resolution not supported for PATCH endpoints
-    const result = await apis.modelManagement.setMode(wId, modelId, mode);
-    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    try {
+      const result = await apis.modelManagement.setMode(wId, modelId, mode);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    } catch (err: any) {
+      // If 405 and Playwright UI is available, fall back to browser automation
+      if ((err?.message?.includes("405") || err?.message?.includes("Method Not Allowed")) && ui?.enabled) {
+        const uiResult = await ui.setModelMode(wId, modelId, mode);
+        return { content: [{ type: "text" as const, text: uiResult.success ? uiResult.message : `API 405 + UI fallback failed: ${uiResult.message}` }] };
+      }
+      throw err;
+    }
   });
 
   server.tool("bulk_delete_models", "Bulk delete closed models (WARNING: irreversible). Models must be closed first.", {

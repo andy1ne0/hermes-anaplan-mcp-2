@@ -314,8 +314,10 @@ describe("TransactionalApi", () => {
     });
   });
 
-  describe("structural CRUD", () => {
-    it("createList() posts to /workspaces/{wsId}/models/{mId}/lists", async () => {
+  // ── Structural CRUD tests ─────────────────────────────────────────
+
+  describe("createList", () => {
+    it("calls POST /workspaces/{wsId}/models/{mId}/lists with name and description", async () => {
       const client = mockClient();
       const api = new TransactionalApi(client);
 
@@ -323,11 +325,25 @@ describe("TransactionalApi", () => {
 
       expect(client.post).toHaveBeenCalledWith(
         "/workspaces/ws1/models/m1/lists",
-        { name: "My List", description: "A test list" }
+        { name: "My List", description: "A test list" },
       );
     });
 
-    it("createModule() posts to /workspaces/{wsId}/models/{mId}/modules", async () => {
+    it("omits description when not provided", async () => {
+      const client = mockClient();
+      const api = new TransactionalApi(client);
+
+      await api.createList("ws1", "m1", "My List");
+
+      expect(client.post).toHaveBeenCalledWith(
+        "/workspaces/ws1/models/m1/lists",
+        { name: "My List" },
+      );
+    });
+  });
+
+  describe("createModule", () => {
+    it("calls POST /workspaces/{wsId}/models/{mId}/modules with name and description", async () => {
       const client = mockClient();
       const api = new TransactionalApi(client);
 
@@ -335,13 +351,28 @@ describe("TransactionalApi", () => {
 
       expect(client.post).toHaveBeenCalledWith(
         "/workspaces/ws1/models/m1/modules",
-        { name: "My Module", description: "A test module" }
+        { name: "My Module", description: "A test module" },
       );
     });
 
-    it("addLineItems() posts to /workspaces/{wsId}/models/{mId}/modules/{modId}/lineItems", async () => {
+    it("omits description when not provided", async () => {
       const client = mockClient();
       const api = new TransactionalApi(client);
+
+      await api.createModule("ws1", "m1", "My Module");
+
+      expect(client.post).toHaveBeenCalledWith(
+        "/workspaces/ws1/models/m1/modules",
+        { name: "My Module" },
+      );
+    });
+  });
+
+  describe("addLineItems", () => {
+    it("calls POST /workspaces/{wsId}/models/{mId}/modules/{modId}/lineItems with items", async () => {
+      const client = mockClient();
+      const api = new TransactionalApi(client);
+
       const items = [
         { name: "Revenue", format: "NUMBER", formula: "Price * Units", summary: "SUM" },
         { name: "Notes", format: "TEXT" },
@@ -351,29 +382,51 @@ describe("TransactionalApi", () => {
 
       expect(client.post).toHaveBeenCalledWith(
         "/workspaces/ws1/models/m1/modules/mod1/lineItems",
-        { items }
+        { items },
       );
     });
 
-    it("deleteModule() deletes /workspaces/{wsId}/models/{mId}/modules/{modId}", async () => {
+    it("sends appliesTo dimension names in items", async () => {
+      const client = mockClient();
+      const api = new TransactionalApi(client);
+
+      const items = [
+        { name: "Revenue", format: "NUMBER", appliesTo: [{ name: "Products" }, { id: "dim002" }] },
+      ];
+
+      await api.addLineItems("ws1", "m1", "mod1", items);
+
+      expect(client.post).toHaveBeenCalledWith(
+        "/workspaces/ws1/models/m1/modules/mod1/lineItems",
+        { items },
+      );
+      const body = (client.post as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      expect(body.items[0].appliesTo).toEqual([{ name: "Products" }, { id: "dim002" }]);
+    });
+  });
+
+  describe("deleteModule", () => {
+    it("calls DELETE /workspaces/{wsId}/models/{mId}/modules/{modId}", async () => {
       const client = mockClient();
       const api = new TransactionalApi(client);
 
       await api.deleteModule("ws1", "m1", "mod1");
 
       expect(client.delete).toHaveBeenCalledWith(
-        "/workspaces/ws1/models/m1/modules/mod1"
+        "/workspaces/ws1/models/m1/modules/mod1",
       );
     });
+  });
 
-    it("deleteList() deletes /workspaces/{wsId}/models/{mId}/lists/{listId}", async () => {
+  describe("deleteList", () => {
+    it("calls DELETE /workspaces/{wsId}/models/{mId}/lists/{listId}", async () => {
       const client = mockClient();
       const api = new TransactionalApi(client);
 
       await api.deleteList("ws1", "m1", "list1");
 
       expect(client.delete).toHaveBeenCalledWith(
-        "/workspaces/ws1/models/m1/lists/list1"
+        "/workspaces/ws1/models/m1/lists/list1",
       );
     });
   });
