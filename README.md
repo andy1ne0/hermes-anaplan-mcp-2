@@ -93,18 +93,16 @@ This server was developed using the **[Hermes Agent](https://github.com/anthropi
 - Run imports, exports, processes, and delete actions
 - Upload and download files
 - Manage models (open, close, delete, set periods and fiscal year)
+- Change model mode, create lists, and create modules via Playwright UI automation (when API returns 405)
 - Query users, versions, and task history
 
 ### Model Building Limitations
 The Anaplan API does not support:
-- Creating modules or line items programmatically
 - Defining formulas through API
 - Building model structure from scratch
 - Configuring model calendar programmatically
 
-For governed structural creation through the browser UI, see [`docs/guides/anaplan-playwright-structural-crud.md`](docs/guides/anaplan-playwright-structural-crud.md). It documents the Playwright/nested-iframe/Dojo pattern for creating General Lists and Modules without using Anaplan API write endpoints.
-
-For model building, use Anaplan's UI, Agent Studio, or the documented Playwright UI workflow when browser automation is explicitly required.
+For structural creation (lists, modules, line items) blocked by the API on some tenants, enable Playwright UI automation (`ANAPLAN_PLAYWRIGHT_ENABLED=true`). See the **Playwright UI Automation** section below and [`docs/guides/anaplan-playwright-structural-crud.md`](docs/guides/anaplan-playwright-structural-crud.md).
 
 ## Prerequisites
 
@@ -359,17 +357,15 @@ Claude Desktop prompts you before each tool call. You'll see the tool name and p
 | `reset_list_index` | Reset list item index numbering<br>`POST /models/{modelId}/lists/{listId}/resetIndex` |
 | `download_optimizer_log` | Download Optimizer solver log for a completed action<br>`GET .../optimizeActions/{actionId}/tasks/{correlationId}/solutionLogs` |
 
-### Transactional Operations (10 tools)
+### Transactional Operations (8 tools)
 
-|| Tool | Description |
+| Tool | Description |
 |------|-------------|
 | `read_cells` | Read cell data from a module view<br>`GET /models/{modelId}/views/{viewId}/data?format=v1` |
 | `write_cells` | Write values to specific module cells<br>`POST /models/{modelId}/modules/{moduleId}/data` |
 | `add_list_items` | Add new items to a list<br>`POST .../lists/{listId}/items?action=add` |
 | `update_list_items` | Update existing list items<br>`PUT .../lists/{listId}/items` |
 | `delete_list_items` | Delete list items<br>`POST .../lists/{listId}/items?action=delete` |
-| `create_list` | Create a new list in a model<br>`POST /workspaces/{workspaceId}/models/{modelId}/lists` |
-| `create_module` | Create a new module in a model<br>`POST /workspaces/{workspaceId}/models/{modelId}/modules` |
 | `add_lineitem` | Add one or more line items to a module<br>`POST /workspaces/{workspaceId}/models/{modelId}/modules/{moduleId}/lineItems` |
 | `delete_module` | Delete a module from a model (requires `force=true`)<br>`DELETE /workspaces/{workspaceId}/models/{modelId}/modules/{moduleId}` |
 | `delete_list` | Delete a list from a model (requires `force=true`)<br>`DELETE /workspaces/{workspaceId}/models/{modelId}/lists/{listId}` |
