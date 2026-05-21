@@ -374,7 +374,7 @@ Claude Desktop prompts you before each tool call. You'll see the tool name and p
 
 Some Anaplan operations are blocked by the Transactional API v2.0 on certain tenants (returns HTTP 405). When Playwright UI automation is enabled, these tools automatically fall back to browser-based interaction with the Anaplan web interface.
 
-|| Tool | Description |
+| Tool | Description |
 |------|-------------|
 | `set_modelmode` | Change model mode via Anaplan UI (UNLOCKED, LOCKED, ARCHIVED, PRODUCTION, PRODUCTION_MAINTENANCE). Falls back to Playwright browser automation when the API returns 405<br>UI flow: Home → Model Management → select model → Change Mode → pick mode → OK |
 | `create_list` | Create a new list via Anaplan UI. Falls back to Playwright when the API returns 405<br>UI flow: Open model → Settings → Lists → Add List → fill name → Save |
