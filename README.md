@@ -102,7 +102,9 @@ The Anaplan API does not support:
 - Building model structure from scratch
 - Configuring model calendar programmatically
 
-For model building, use Anaplan's UI or Agent Studio.
+For governed structural creation through the browser UI, see [`docs/guides/anaplan-playwright-structural-crud.md`](docs/guides/anaplan-playwright-structural-crud.md). It documents the Playwright/nested-iframe/Dojo pattern for creating General Lists and Modules without using Anaplan API write endpoints.
+
+For model building, use Anaplan's UI, Agent Studio, or the documented Playwright UI workflow when browser automation is explicitly required.
 
 ## Prerequisites
 
