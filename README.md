@@ -41,7 +41,7 @@ Built in TypeScript. Supports both stdio (local) and Streamable HTTP (remote) tr
 
 **Anaplan's Integration API is powerful but requires technical expertise to use directly.** Most teams rely on a handful of model builders to navigate complex models, extract data, and run imports - creating bottlenecks when others need access to the same information.
 
-This server wraps the API in 70 structured tools that AI assistants like Claude can call on your behalf. Explore models, pull data, run actions, and onboard new team members - all by asking in plain English instead of writing API calls or waiting for someone who knows the model.
+This server wraps the API in 76 structured tools (including 3 with Playwright UI automation fallback) that AI assistants like Claude can call on your behalf. Explore models, pull data, run actions, and onboard new team members - all by asking in plain English instead of writing API calls or waiting for someone who knows the model.
 
 **For business users:** Stop waiting for someone to pull data or explain how a model works. Ask Claude to show you the numbers, walk you through module structure, or run your regular imports.
 
@@ -262,12 +262,13 @@ These apply only to `npm run start:http` / remote MCP deployments:
 
 ### What the server can do
 
-This server has **full access** to whatever your Anaplan credentials allow. The 75 tools cover both read and write operations:
+This server has **full access** to whatever your Anaplan credentials allow. The 76 tools cover read, write, action, admin, and UI automation operations:
 
 - **Read-only tools** (safe to use freely): `show_*` tools, `read_cells`, `get_list_items`, `download_file`, `get_action_status`
 - **Write tools** (modify data): `write_cells`, `add_list_items`, `update_list_items`, `delete_list_items`, `create_list`, `create_module`, `add_lineitem`, `delete_list`, `delete_module`
 - **Action tools** (trigger Anaplan processes): `run_import`, `run_export`, `run_process`, `run_delete`
 - **Admin tools** (model management): `close_model`, `open_model`, `bulk_delete_models`, `set_currentperiod`, `set_fiscalyear`
+- **UI automation tools** (Playwright browser fallback): `set_modelmode`, `create_list` (UI path), `create_module` (UI path)
 
 ### Tool approval in Claude Desktop
 
@@ -360,7 +361,7 @@ Claude Desktop prompts you before each tool call. You'll see the tool name and p
 
 ### Transactional Operations (10 tools)
 
-| Tool | Description |
+|| Tool | Description |
 |------|-------------|
 | `read_cells` | Read cell data from a module view<br>`GET /models/{modelId}/views/{viewId}/data?format=v1` |
 | `write_cells` | Write values to specific module cells<br>`POST /models/{modelId}/modules/{moduleId}/data` |
@@ -372,6 +373,45 @@ Claude Desktop prompts you before each tool call. You'll see the tool name and p
 | `add_lineitem` | Add one or more line items to a module<br>`POST /workspaces/{workspaceId}/models/{modelId}/modules/{moduleId}/lineItems` |
 | `delete_module` | Delete a module from a model (requires `force=true`)<br>`DELETE /workspaces/{workspaceId}/models/{modelId}/modules/{moduleId}` |
 | `delete_list` | Delete a list from a model (requires `force=true`)<br>`DELETE /workspaces/{workspaceId}/models/{modelId}/lists/{listId}` |
+
+### Playwright UI Automation (3 tools)
+
+Some Anaplan operations are blocked by the Transactional API v2.0 on certain tenants (returns HTTP 405). When Playwright UI automation is enabled, these tools automatically fall back to browser-based interaction with the Anaplan web interface.
+
+|| Tool | Description |
+|------|-------------|
+| `set_modelmode` | Change model mode via Anaplan UI (UNLOCKED, LOCKED, ARCHIVED, PRODUCTION, PRODUCTION_MAINTENANCE). Falls back to Playwright browser automation when the API returns 405<br>UI flow: Home → Model Management → select model → Change Mode → pick mode → OK |
+| `create_list` | Create a new list via Anaplan UI. Falls back to Playwright when the API returns 405<br>UI flow: Open model → Settings → Lists → Add List → fill name → Save |
+| `create_module` | Create a new module via Anaplan UI. Falls back to Playwright when the API returns 405<br>UI flow: Open model → Settings → Modules → Add Module → fill name → Save |
+
+**Prerequisites:**
+
+```bash
+npm install playwright && npx playwright install chromium && npx playwright install-deps chromium
+```
+
+**Environment variables:**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANAPLAN_PLAYWRIGHT_ENABLED` | Yes | Set to `true` to enable Playwright fallback. Default: `false` |
+| `ANAPLAN_PLAYWRIGHT_REGION` | No | Anaplan region for URL routing. Default: `au1a`. Maps to `https://{region}.app2.anaplan.com` |
+| `ANAPLAN_PLAYWRIGHT_HEADLESS` | No | Set to `false` for interactive MFA entry. Default: `true` |
+| `ANAPLAN_USERNAME` | Yes | Anaplan email (shared with API auth) |
+| `ANAPLAN_PASSWORD` | Yes | Anaplan password (shared with API auth) |
+
+**Architecture:**
+
+- **Lazy browser lifecycle** — Chromium launches on first use, authenticates, and stays alive for subsequent calls. After 5 minutes of idle time the browser closes gracefully.
+- **API-first with automatic fallback** — tools attempt the REST API first; on HTTP 405 they invoke the Playwright UI automation. When Playwright is disabled, a guidance message tells the user to perform the action manually in the Anaplan UI.
+- **MFA support** — if MFA is required and running headless, the tool throws a clear error. Set `ANAPLAN_PLAYWRIGHT_HEADLESS=false` for interactive MFA entry.
+
+**Important notes:**
+
+- The Anaplan SPA renders model content inside an iframe named `"App shell content"`. Playwright automation uses `frameLocator` for model-level operations.
+- The models list page may use closed Shadow DOM or custom rendering that is invisible to Playwright DOM access. The automation includes screenshot-based fallbacks for these cases.
+- All Playwright errors capture screenshots to `/tmp/anaplan-ui-debug/<action>-<timestamp>.png` for diagnosis.
+- Patch `src/*.ts` only — `npm run build` overwrites `dist/` from source.
 
 ## Orchestration Guide
 
@@ -394,9 +434,10 @@ Every tool description also includes prerequisite hints ("Use show_imports first
 src/
   auth/       # Authentication providers (basic, certificate, oauth) + token manager
   api/        # HTTP client with retry logic + 17 domain-specific API wrappers
-  tools/      # MCP tool registrations (exploration, bulk, transactional) + response hints
+  ui/         # Playwright browser automation (AnaplanUI class) — lazy lifecycle, API-1st fallback
+  tools/      # MCP tool registrations (exploration, bulk, transactional, playwright) + response hints
   resources/  # MCP resource content (orchestration guide)
-  server.ts   # Wires auth > client > APIs > MCP server + registers resources
+  server.ts   # Wires auth > client > APIs > UI > MCP server + registers resources
   index.ts    # Entry point (stdio transport)
   http.ts     # Entry point (Streamable HTTP transport)
 
@@ -408,11 +449,12 @@ docs/
 examples/     # Example output - FY26 Sales Forecast deck generated via MCP
 ```
 
-Three layers:
+Four layers:
 
 1. **Auth layer** - pluggable providers behind a common `AuthProvider` interface. The `AuthManager` selects the right provider from env vars and handles token lifecycle.
 2. **API layer** - `AnaplanClient` handles all HTTP communication with the Anaplan API. 17 domain wrappers provide typed methods for each endpoint. Auto-paginates list endpoints using Anaplan's `meta.paging` metadata.
-3. **Tools layer** - registers MCP tools on the server with zod schemas for input validation. Each tool delegates to the appropriate API wrapper and formats results. Key tools include next-step hints to guide multi-tool workflows.
+3. **UI layer** - `AnaplanUI` (Playwright) handles operations the Transactional API v2.0 blocks with HTTP 405. Lazy browser lifecycle: launches Chromium on first use, authenticates, stays alive for 5 minutes idle, then shuts down. Tools call the API first and fall back to Playwright on 405.
+4. **Tools layer** - registers MCP tools on the server with zod schemas for input validation. Each tool delegates to the appropriate API wrapper (or UI fallback) and formats results. Key tools include next-step hints to guide multi-tool workflows.
 
 For detailed runtime diagrams (request flow, trust boundary, subsystem map) see [docs/architecture/overview.md](docs/architecture/overview.md).
 
