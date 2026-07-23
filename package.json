@@ -16,7 +16,8 @@
     "start:http": "node dist/http.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:extension": "bash scripts/build-extension.sh"
   },
   "keywords": [
     "mcp",

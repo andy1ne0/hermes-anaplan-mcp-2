@@ -1,0 +1,96 @@
+{
+  "manifest_version": "0.4",
+  "name": "anaplan-mcp",
+  "display_name": "Anaplan",
+  "version": "1.2.0",
+  "description": "Connect Claude to the Anaplan Integration API: manage workspaces, models, lists, modules, imports/exports, and processes.",
+  "long_description": "Gives Claude direct access to the Anaplan Integration API v2. Supports OAuth2 (device grant), certificate, and basic authentication; bulk import/export/process orchestration; transactional cell reads/writes; and an optional Playwright-based UI automation fallback for operations the API blocks on some tenants (model mode changes, list/module creation).",
+  "author": {
+    "name": "Lara Srinath"
+  },
+  "license": "GPL-3.0-only",
+  "keywords": ["anaplan", "mcp", "model-context-protocol"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "ANAPLAN_INSTANCE": "${user_config.anaplan_instance}",
+        "ANAPLAN_CLIENT_ID": "${user_config.anaplan_client_id}",
+        "ANAPLAN_USERNAME": "${user_config.anaplan_username}",
+        "ANAPLAN_PASSWORD": "${user_config.anaplan_password}",
+        "ANAPLAN_CERTIFICATE_PATH": "${user_config.anaplan_certificate_path}",
+        "ANAPLAN_PRIVATE_KEY_PATH": "${user_config.anaplan_private_key_path}",
+        "ANAPLAN_PLAYWRIGHT_ENABLED": "${user_config.anaplan_playwright_enabled}",
+        "ANAPLAN_PLAYWRIGHT_HEADLESS": "${user_config.anaplan_playwright_headless}"
+      }
+    }
+  },
+  "user_config": {
+    "anaplan_instance": {
+      "type": "string",
+      "title": "Anaplan instance",
+      "description": "Tenant region: us1 (default) or au1. Applies to every auth method.",
+      "required": false,
+      "default": "us1"
+    },
+    "anaplan_client_id": {
+      "type": "string",
+      "title": "OAuth client ID",
+      "description": "Recommended auth method. Enables device-grant sign-in: Claude shows a link in chat, approve it in Anaplan, then retry. Leave blank if using username/password or certificate auth instead.",
+      "required": false,
+      "default": ""
+    },
+    "anaplan_username": {
+      "type": "string",
+      "title": "Username (basic auth)",
+      "description": "Anaplan email. Only needed if not using OAuth or certificate auth.",
+      "required": false,
+      "default": ""
+    },
+    "anaplan_password": {
+      "type": "string",
+      "title": "Password (basic auth)",
+      "description": "Anaplan password. Only needed if not using OAuth or certificate auth. Also used as the Playwright login password if UI automation is enabled below.",
+      "required": false,
+      "sensitive": true,
+      "default": ""
+    },
+    "anaplan_certificate_path": {
+      "type": "file",
+      "title": "Certificate path (cert auth)",
+      "description": "Path to a PEM certificate file. Only needed for certificate-based auth.",
+      "required": false,
+      "default": ""
+    },
+    "anaplan_private_key_path": {
+      "type": "file",
+      "title": "Private key path (cert auth)",
+      "description": "Path to the PEM private key matching the certificate above. Only needed for certificate-based auth.",
+      "required": false,
+      "default": ""
+    },
+    "anaplan_playwright_enabled": {
+      "type": "boolean",
+      "title": "Enable Playwright UI automation",
+      "description": "Turns on browser-automation fallback for set_modelmode, create_list, and create_module when the API returns 405 on your tenant. Requires 'npm install playwright && npx playwright install chromium' in the extension folder, and the username/password above.",
+      "required": false,
+      "default": false
+    },
+    "anaplan_playwright_headless": {
+      "type": "boolean",
+      "title": "Run Playwright headless",
+      "description": "Uncheck to show the browser window, needed if your Anaplan login requires interactive MFA.",
+      "required": false,
+      "default": true
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

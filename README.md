@@ -123,7 +123,28 @@ npm run build
 
 ### 2. Connect to Claude Desktop
 
-Claude Desktop is the easiest way to use this server. Here's how to set it up:
+Two ways to connect: build a **Claude Desktop extension** (`.mcpb` file, single-click install, settings editable in Claude's UI) or edit the **JSON config** by hand. The extension is recommended unless you need remote HTTP mode or want to run from source without packaging.
+
+#### Option A: Build and install the extension (recommended)
+
+```bash
+npm run build:extension
+```
+
+This compiles the server, stages a production-only copy (no dev dependencies, no docs/tests), and packs it into `anaplan-mcp.mcpb` in the repo root. Requires the [prerequisites](#prerequisites) above; `npx` will fetch the `@anthropic-ai/mcpb` packaging tool on first run.
+
+Then in Claude Desktop: **Settings → Extensions → Install from file...** and pick `anaplan-mcp.mcpb`. Claude renders a settings form for every field defined in [`manifest.json`](manifest.json)'s `user_config` (instance, OAuth client ID, username/password, certificate paths, and the Playwright toggles) — fill in whichever auth method you're using and leave the rest blank. Nothing needs manual JSON editing, and secrets like the password field are masked.
+
+If you later enable the Playwright fallback, install its browser binary inside the installed extension folder (Claude shows the path under the extension's details):
+
+```bash
+cd <extension folder>
+npm install playwright && npx playwright install chromium
+```
+
+Re-run `npm run build:extension` and reinstall whenever you pull new code — the bundle isn't auto-updated from source.
+
+#### Option B: JSON config
 
 **Step 1: Open the config file**
 
@@ -495,6 +516,9 @@ docs/
   guides/     # Tool selection and workflow guides
 
 examples/     # Example output - FY26 Sales Forecast deck generated via MCP
+
+manifest.json          # Claude Desktop extension (.mcpb) manifest — server config + user-editable settings
+scripts/build-extension.sh # Packs manifest.json + dist/ into anaplan-mcp.mcpb (npm run build:extension)
 ```
 
 Four layers:
