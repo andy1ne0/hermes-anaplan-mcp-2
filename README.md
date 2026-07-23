@@ -219,7 +219,7 @@ Any MCP-compatible client that supports stdio transport can connect. The server 
 
 The server also supports **Streamable HTTP transport** for remote MCP connections from [claude.ai](https://claude.ai), [ChatGPT](https://chatgpt.com), and other browser-based AI assistants. Deploy to a cloud platform (Fly.io recommended) and connect via the remote MCP integration settings.
 
-Remote HTTP mode is designed for **per-session Anaplan OAuth**, not a single shared Anaplan user. Set `ANAPLAN_CLIENT_ID` on the server so each remote session can authorize against Anaplan with its own identity. If you want an extra outer gate in front of the endpoint, you can also set `ANAPLAN_MCP_HTTP_AUTH_TOKEN` and have your client or reverse proxy send it as `Authorization: Bearer <token>`.
+Remote HTTP mode is designed for **per-session Anaplan OAuth**, not a single shared Anaplan user. Set `ANAPLAN_CLIENT_ID` on the server so each remote session can authorize against Anaplan with its own identity. Basic auth (`ANAPLAN_USERNAME`/`ANAPLAN_PASSWORD`) and certificate auth (`ANAPLAN_CERTIFICATE_PATH`/`ANAPLAN_PRIVATE_KEY_PATH`) are intentionally **not** supported in remote HTTP mode — they would collapse every session onto one shared Anaplan identity, breaking per-user permissions and auditability. They remain available for stdio/local use only. If you want an extra outer gate in front of the endpoint, you can also set `ANAPLAN_MCP_HTTP_AUTH_TOKEN` and have your client or reverse proxy send it as `Authorization: Bearer <token>`.
 
 See the **[Remote Deployment Guide](docs/guides/deploying-remote.md)** for full setup instructions, platform recommendations, and troubleshooting.
 

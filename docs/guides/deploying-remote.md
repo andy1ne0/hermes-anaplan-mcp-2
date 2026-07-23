@@ -69,7 +69,9 @@ These are **all required** for the server to work with remote MCP clients. Missi
 
 Remote HTTP mode now assumes each MCP session authenticates to Anaplan separately. Set `ANAPLAN_CLIENT_ID` on the server; the HTTP transport creates a fresh OAuth-backed `AuthManager` for each session instead of sharing a process-wide Anaplan user.
 
-If `ANAPLAN_CLIENT_ID` is missing, HTTP mode fails fast at startup.
+Basic auth (`ANAPLAN_USERNAME`/`ANAPLAN_PASSWORD`) and certificate auth (`ANAPLAN_CERTIFICATE_PATH`/`ANAPLAN_PRIVATE_KEY_PATH`) are intentionally rejected in remote HTTP mode. They would force every remote session to share one Anaplan identity, which breaks per-user permissions and auditability. Use them only in stdio/local mode.
+
+If `ANAPLAN_CLIENT_ID` is missing, HTTP mode fails fast at startup, even when basic or certificate credentials are also set.
 
 ### 2. Bind to 0.0.0.0
 

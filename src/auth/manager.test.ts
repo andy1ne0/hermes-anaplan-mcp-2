@@ -98,6 +98,18 @@ describe("AuthManager", () => {
     expect(() => AuthManager.fromRemoteHttpEnv()).toThrow("Remote HTTP mode requires ANAPLAN_CLIENT_ID");
   });
 
+  it("rejects basic auth credentials in remote HTTP mode (no shared service account)", () => {
+    process.env.ANAPLAN_USERNAME = "svc-account";
+    process.env.ANAPLAN_PASSWORD = "svc-pass";
+    expect(() => AuthManager.fromRemoteHttpEnv()).toThrow("Remote HTTP mode requires ANAPLAN_CLIENT_ID");
+  });
+
+  it("rejects certificate credentials in remote HTTP mode (no shared service account)", () => {
+    process.env.ANAPLAN_CERTIFICATE_PATH = "/cert.pem";
+    process.env.ANAPLAN_PRIVATE_KEY_PATH = "/key.pem";
+    expect(() => AuthManager.fromRemoteHttpEnv()).toThrow("Remote HTTP mode requires ANAPLAN_CLIENT_ID");
+  });
+
   it("uses ANAPLAN_REFRESH_TOKEN to skip device grant on first auth call", async () => {
     process.env.ANAPLAN_CLIENT_ID = "cid";
     process.env.ANAPLAN_REFRESH_TOKEN = "stored-refresh";
