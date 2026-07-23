@@ -55,6 +55,16 @@ function tableCell(value: unknown): string {
   return String(value).replace(/\r?\n/g, " ").replace(/\|/g, "\\|");
 }
 
+const MODEL_DETAIL_COLUMNS = [
+  { header: "Memory Usage", key: "memoryUsage" },
+  { header: "Last Saved Serial Number", key: "lastSavedSerialNumber" },
+  { header: "Last Modified By", key: "lastModifiedByUserGuid" },
+  { header: "Created", key: "isoCreationDate" },
+  { header: "Last Modified", key: "lastModified" },
+  { header: "Model URL", key: "modelUrl" },
+  { header: "Category Values", key: "categoryValues" },
+];
+
 function lineItemAppliesTo(item: any): string {
   if (Array.isArray(item.appliesTo)) {
     return item.appliesTo.map((dim: any) => dim?.name ?? dim?.id ?? "").filter(Boolean).join(", ");
@@ -99,8 +109,10 @@ export function registerExplorationTools(server: McpServer, apis: ExplorationApi
     const wId = await resolver.resolveWorkspace(workspaceId);
     let models = await apis.models.list(wId, modelDetails);
     if (state) models = models.filter((m: any) => m.activeState === state);
+    const columns = [{ header: "Name", key: "name" }, { header: "State", key: "activeState" }, { header: "ID", key: "id" }];
+    if (modelDetails) columns.push(...MODEL_DETAIL_COLUMNS);
     return withNextSteps(
-      tableResult(models, [{ header: "Name", key: "name" }, { header: "State", key: "activeState" }, { header: "ID", key: "id" }], "models", { limit, search }),
+      tableResult(models, columns, "models", { limit, search }),
       ["Use show_modules to explore modules, show_imports/show_exports for bulk actions."],
     );
   });
@@ -113,17 +125,15 @@ export function registerExplorationTools(server: McpServer, apis: ExplorationApi
     const wId = await resolver.resolveWorkspace(workspaceId);
     const mId = await resolver.resolveModel(wId, modelId);
     const model = await apis.models.get(wId, mId, modelDetails);
-    return tableResult(
-      [model],
-      [
-        { header: "Model", key: "name" },
-        { header: "Model ID", key: "id" },
-        { header: "Workspace", key: "currentWorkspaceName" },
-        { header: "Workspace ID", key: "currentWorkspaceId" },
-        { header: "State", key: "activeState" },
-      ],
-      "model details",
-    );
+    const columns = [
+      { header: "Model", key: "name" },
+      { header: "Model ID", key: "id" },
+      { header: "Workspace", key: "currentWorkspaceName" },
+      { header: "Workspace ID", key: "currentWorkspaceId" },
+      { header: "State", key: "activeState" },
+    ];
+    if (modelDetails) columns.push(...MODEL_DETAIL_COLUMNS);
+    return tableResult([model], columns, "model details");
   });
 
   server.tool("show_modules", "List all modules in a model. Use show_lineitems to see a module's line items, or show_savedviews to find views for read_cells.", {
@@ -366,12 +376,14 @@ export function registerExplorationTools(server: McpServer, apis: ExplorationApi
   }, async ({ state, modelDetails, limit, search }) => {
     let models = await apis.models.listAll(modelDetails);
     if (state) models = models.filter((m: any) => m.activeState === state);
-    return tableResult(models, [
+    const columns = [
       { header: "Name", key: "name" },
       { header: "ID", key: "id" },
       { header: "Workspace", key: "currentWorkspaceName" },
       { header: "State", key: "activeState" }, // This is Manchester United, we are talking about
-    ], "models", { limit, search });
+    ];
+    if (modelDetails) columns.push(...MODEL_DETAIL_COLUMNS);
+    return tableResult(models, columns, "models", { limit, search });
   });
 
   server.tool("show_modelstatus", "Check model status including memory usage and export progress.", {
