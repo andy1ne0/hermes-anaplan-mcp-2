@@ -140,6 +140,8 @@ Replace `<path>` with the absolute path to your cloned repo (e.g. `/Users/you/an
 
 Choose **one** auth method only. For most users, use **OAuth2** so Claude can show a sign-in link in chat. Do not set OAuth, certificate, and basic env vars together.
 
+Also choose which **Anaplan instance** (tenant region) to connect to via `ANAPLAN_INSTANCE`. This affects every auth method. Supported values today: `us1` (default) and `au1`. See [Anaplan instances](#anaplan-instances) below for details and for connecting to instances not built in.
+
 **Recommended: OAuth2 (device grant)**
 
 ```json
@@ -149,7 +151,8 @@ Choose **one** auth method only. For most users, use **OAuth2** so Claude can sh
       "command": "node",
       "args": ["<path>/dist/index.js"],
       "env": {
-        "ANAPLAN_CLIENT_ID": "your-client-id"
+        "ANAPLAN_CLIENT_ID": "your-client-id",
+        "ANAPLAN_INSTANCE": "us1"
       }
     }
   }
@@ -219,11 +222,34 @@ Any MCP-compatible client that supports stdio transport can connect. The server 
 
 The server also supports **Streamable HTTP transport** for remote MCP connections from [claude.ai](https://claude.ai), [ChatGPT](https://chatgpt.com), and other browser-based AI assistants. Deploy to a cloud platform (Fly.io recommended) and connect via the remote MCP integration settings.
 
-Remote HTTP mode is designed for **per-session Anaplan OAuth**, not a single shared Anaplan user. Set `ANAPLAN_CLIENT_ID` on the server so each remote session can authorize against Anaplan with its own identity. Basic auth (`ANAPLAN_USERNAME`/`ANAPLAN_PASSWORD`) and certificate auth (`ANAPLAN_CERTIFICATE_PATH`/`ANAPLAN_PRIVATE_KEY_PATH`) are intentionally **not** supported in remote HTTP mode — they would collapse every session onto one shared Anaplan identity, breaking per-user permissions and auditability. They remain available for stdio/local use only. If you want an extra outer gate in front of the endpoint, you can also set `ANAPLAN_MCP_HTTP_AUTH_TOKEN` and have your client or reverse proxy send it as `Authorization: Bearer <token>`.
+Remote HTTP mode is designed for **per-session Anaplan OAuth**, not a single shared Anaplan user. Set `ANAPLAN_CLIENT_ID` on the server so each remote session can authorize against Anaplan with its own identity. Set `ANAPLAN_INSTANCE` on the server too (see [Anaplan instances](#anaplan-instances)) - it applies to every session, since the instance is fixed per deployment. Basic auth (`ANAPLAN_USERNAME`/`ANAPLAN_PASSWORD`) and certificate auth (`ANAPLAN_CERTIFICATE_PATH`/`ANAPLAN_PRIVATE_KEY_PATH`) are intentionally **not** supported in remote HTTP mode — they would collapse every session onto one shared Anaplan identity, breaking per-user permissions and auditability. They remain available for stdio/local use only. If you want an extra outer gate in front of the endpoint, you can also set `ANAPLAN_MCP_HTTP_AUTH_TOKEN` and have your client or reverse proxy send it as `Authorization: Bearer <token>`.
 
 See the **[Remote Deployment Guide](docs/guides/deploying-remote.md)** for full setup instructions, platform recommendations, and troubleshooting.
 
 ## Configuration
+
+### Anaplan instances
+
+Anaplan tenants live on different instances (regions), each with its own auth and API hosts. Set `ANAPLAN_INSTANCE` to choose one - it applies to OAuth, certificate, and basic auth alike, plus every transactional/bulk API call.
+
+| `ANAPLAN_INSTANCE` | Auth base URL | API base URL |
+|---------------------|---------------|--------------|
+| `us1` (default) | `https://auth.anaplan.com` | `https://api.anaplan.com` |
+| `au1` | `https://au1a.app2.anaplan.com` | `https://api.au1a.app2.anaplan.com` |
+
+If you don't set `ANAPLAN_INSTANCE`, the server defaults to `us1`. Most tenants are reachable through the global `us1` hosts regardless of where they're physically provisioned - if you're not sure which to pick, try `us1` first and switch to `au1` if you get 403s on every call.
+
+For an instance that isn't built in, set `ANAPLAN_INSTANCE` to any identifier plus both override URLs:
+
+```json
+"env": {
+  "ANAPLAN_INSTANCE": "eu1",
+  "ANAPLAN_INSTANCE_AUTH_BASE_URL": "https://eu1a.app2.anaplan.com",
+  "ANAPLAN_INSTANCE_API_BASE_URL": "https://api.eu1a.app2.anaplan.com"
+}
+```
+
+Note: this selects the instance used for OAuth/certificate/basic auth and the transactional/bulk API. It's independent of `ANAPLAN_PLAYWRIGHT_REGION`, which controls the region used by the separate Playwright UI-automation fallback (see [Playwright UI Automation](#playwright-ui-automation-3-tools)).
 
 ### Environment variables
 
@@ -234,6 +260,7 @@ All configuration is done through environment variables. There are no config fil
 | OAuth2 (device grant) | `ANAPLAN_CLIENT_ID` | Highest priority. Device authorization flow. Claude shows you the URL and code in chat; authorize in browser then retry. Tokens stay in memory only, so restart or >60 minutes of idle time requires another device login unless you set `ANAPLAN_REFRESH_TOKEN` manually |
 | Certificate | `ANAPLAN_CERTIFICATE_PATH`, `ANAPLAN_PRIVATE_KEY_PATH`, `ANAPLAN_CERTIFICATE_ENCODED_DATA_FORMAT` (optional) | Second priority. PEM certificate + private key, authenticates via CACertificate flow. Data format defaults to `v2` |
 | Basic | `ANAPLAN_USERNAME`, `ANAPLAN_PASSWORD` | Lowest priority. Email + password, sends base64 credentials to auth endpoint |
+| Instance selection | `ANAPLAN_INSTANCE` (optional, defaults to `us1`), `ANAPLAN_INSTANCE_AUTH_BASE_URL` / `ANAPLAN_INSTANCE_API_BASE_URL` (optional, for instances not built in) | Applies to all auth methods above. See [Anaplan instances](#anaplan-instances) |
 
 You only need one set of credentials. If multiple are configured, the server picks the highest-priority method automatically.
 

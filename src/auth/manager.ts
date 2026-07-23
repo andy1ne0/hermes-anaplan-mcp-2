@@ -1,6 +1,7 @@
 import type { AuthProvider, TokenInfo } from "./types.js";
 import { BasicAuthProvider } from "./basic.js";
 import { CertificateAuthProvider, type CertificateEncodedDataFormat } from "./certificate.js";
+import { resolveInstanceConfig, type AnaplanInstanceConfig } from "./instances.js";
 import {
   DeviceAuthorizationRequiredError,
   OAuthProvider,
@@ -25,51 +26,68 @@ export class AuthManager {
   private lastUsedAt: number | null = null;
   private readonly provider: AuthProvider;
   private readonly providerType: string;
+  private readonly instance: AnaplanInstanceConfig;
 
-  constructor(provider: AuthProvider, providerType: string) {
+  constructor(provider: AuthProvider, providerType: string, instance: AnaplanInstanceConfig) {
     this.provider = provider;
     this.providerType = providerType;
+    this.instance = instance;
   }
 
-  static fromEnv(): AuthManager {
-    const clientId = process.env.ANAPLAN_CLIENT_ID;
+  static fromEnv(env: NodeJS.ProcessEnv = process.env): AuthManager {
+    const instance = resolveInstanceConfig(env);
+
+    const clientId = env.ANAPLAN_CLIENT_ID;
     if (clientId) {
-      const initialRefreshToken = process.env.ANAPLAN_REFRESH_TOKEN || undefined;
-      return new AuthManager(new OAuthProvider(clientId, undefined, undefined, initialRefreshToken), "oauth");
+      const initialRefreshToken = env.ANAPLAN_REFRESH_TOKEN || undefined;
+      return new AuthManager(
+        new OAuthProvider(clientId, instance, undefined, undefined, initialRefreshToken),
+        "oauth",
+        instance,
+      );
     }
 
-    const certPath = process.env.ANAPLAN_CERTIFICATE_PATH;
-    const keyPath = process.env.ANAPLAN_PRIVATE_KEY_PATH;
+    const certPath = env.ANAPLAN_CERTIFICATE_PATH;
+    const keyPath = env.ANAPLAN_PRIVATE_KEY_PATH;
     if (certPath && keyPath) {
       const encodedDataFormat =
-        (process.env.ANAPLAN_CERTIFICATE_ENCODED_DATA_FORMAT
+        (env.ANAPLAN_CERTIFICATE_ENCODED_DATA_FORMAT
           ?.toLowerCase()
           .trim() as CertificateEncodedDataFormat | undefined) ??
         "v2";
-      return new AuthManager(new CertificateAuthProvider(certPath, keyPath, encodedDataFormat), "certificate");
+      return new AuthManager(
+        new CertificateAuthProvider(certPath, keyPath, instance, encodedDataFormat),
+        "certificate",
+        instance,
+      );
     }
 
-    const username = process.env.ANAPLAN_USERNAME;
-    const password = process.env.ANAPLAN_PASSWORD;
+    const username = env.ANAPLAN_USERNAME;
+    const password = env.ANAPLAN_PASSWORD;
     if (username && password) {
-      return new AuthManager(new BasicAuthProvider(username, password), "basic");
+      return new AuthManager(new BasicAuthProvider(username, password, instance), "basic", instance);
     }
 
-    return new AuthManager(new DeferredAuthProvider(), "none");
+    return new AuthManager(new DeferredAuthProvider(), "none", instance);
   }
 
-  static fromRemoteHttpEnv(): AuthManager {
-    const clientId = process.env.ANAPLAN_CLIENT_ID;
+  static fromRemoteHttpEnv(env: NodeJS.ProcessEnv = process.env): AuthManager {
+    const clientId = env.ANAPLAN_CLIENT_ID;
     if (!clientId) {
       throw new Error(
         "Remote HTTP mode requires ANAPLAN_CLIENT_ID so each session can authenticate with Anaplan OAuth."
       );
     }
-    return new AuthManager(new OAuthProvider(clientId), "oauth");
+    const instance = resolveInstanceConfig(env);
+    return new AuthManager(new OAuthProvider(clientId, instance), "oauth", instance);
   }
 
   getProviderType(): string {
     return this.providerType;
+  }
+
+  getInstance(): AnaplanInstanceConfig {
+    return this.instance;
   }
 
   async getAuthHeaders(): Promise<Record<string, string>> {

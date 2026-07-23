@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BasicAuthProvider } from "./basic.js";
+import { resolveInstanceConfig } from "./instances.js";
+
+const US1 = resolveInstanceConfig({});
 
 describe("BasicAuthProvider", () => {
   beforeEach(() => {
@@ -7,8 +10,8 @@ describe("BasicAuthProvider", () => {
   });
 
   it("throws if username or password is missing", () => {
-    expect(() => new BasicAuthProvider("", "pass")).toThrow("username");
-    expect(() => new BasicAuthProvider("user", "")).toThrow("password");
+    expect(() => new BasicAuthProvider("", "pass", US1)).toThrow("username");
+    expect(() => new BasicAuthProvider("user", "", US1)).toThrow("password");
   });
 
   it("sends POST to auth endpoint with basic auth header", async () => {
@@ -26,7 +29,7 @@ describe("BasicAuthProvider", () => {
     };
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse as Response);
 
-    const provider = new BasicAuthProvider("user@co.com", "secret");
+    const provider = new BasicAuthProvider("user@co.com", "secret", US1);
     const token = await provider.authenticate();
 
     expect(fetchSpy).toHaveBeenCalledWith(
@@ -47,7 +50,7 @@ describe("BasicAuthProvider", () => {
       json: async () => ({ status: "FAILURE", statusMessage: "Bad creds" }),
     } as Response);
 
-    const provider = new BasicAuthProvider("user", "wrong");
+    const provider = new BasicAuthProvider("user", "wrong", US1);
     await expect(provider.authenticate()).rejects.toThrow("Bad creds");
   });
 
@@ -65,7 +68,7 @@ describe("BasicAuthProvider", () => {
       }),
     } as Response);
 
-    const provider = new BasicAuthProvider("user", "pass");
+    const provider = new BasicAuthProvider("user", "pass", US1);
     const token = await provider.refresh("oldtoken");
 
     expect(fetch).toHaveBeenCalledWith(

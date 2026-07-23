@@ -1,7 +1,6 @@
 import type { AuthProvider, TokenInfo } from "./types.js";
+import type { AnaplanInstanceConfig } from "./instances.js";
 
-const DEVICE_CODE_URL = "https://au1a.app2.anaplan.com/oauth/device/code";
-const TOKEN_URL = "https://au1a.app2.anaplan.com/oauth/token";
 const AUTH_TIMEOUT_MS = 15000;
 
 interface DeviceCodeResponse {
@@ -104,17 +103,22 @@ export class OAuthReauthorizationRequiredError extends DeviceAuthorizationRequir
 
 export class OAuthProvider implements AuthProvider {
   private readonly clientId: string;
+  private readonly deviceCodeUrl: string;
+  private readonly tokenUrl: string;
   private pendingDevice: PendingDeviceState | null = null;
   private initialRefreshToken: string | null;
 
   constructor(
     clientId: string,
+    instance: AnaplanInstanceConfig,
     _clientSecret?: string,
     _authCodeOptions?: AuthorizationCodeOptions,
     initialRefreshToken?: string,
   ) {
     if (!clientId) throw new Error("Anaplan OAuth client ID is required");
     this.clientId = clientId;
+    this.deviceCodeUrl = `${instance.oauthBaseUrl}/oauth/device/code`;
+    this.tokenUrl = `${instance.oauthBaseUrl}/oauth/token`;
     this.initialRefreshToken = initialRefreshToken ?? null;
   }
 
@@ -145,7 +149,7 @@ export class OAuthProvider implements AuthProvider {
     // If we have a valid pending device code, poll once for the token
     if (this.pendingDevice && Date.now() < this.pendingDevice.expiresAt) {
       const state = this.pendingDevice;
-      const tokenRes = await fetch(TOKEN_URL, {
+      const tokenRes = await fetch(this.tokenUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -190,7 +194,7 @@ export class OAuthProvider implements AuthProvider {
     }
 
     // No valid pending state — request a new device code
-    const codeRes = await fetch(DEVICE_CODE_URL, {
+    const codeRes = await fetch(this.deviceCodeUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -229,7 +233,7 @@ export class OAuthProvider implements AuthProvider {
       refresh_token: refreshToken,
     };
 
-    const response = await fetch(TOKEN_URL, {
+    const response = await fetch(this.tokenUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

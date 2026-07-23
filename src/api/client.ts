@@ -1,7 +1,7 @@
 import { gzipSync } from "node:zlib";
 import type { AuthManager } from "../auth/manager.js";
+import type { AnaplanInstanceConfig } from "../auth/instances.js";
 
-const BASE_URL = "https://api.au1a.app2.anaplan.com/2/0";
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;
 // Retry-After header uses seconds; we convert to ms at call site
@@ -10,9 +10,11 @@ const REQUEST_TIMEOUT_MS = 30_000; // 30s timeout per request
 
 export class AnaplanClient {
   private readonly auth: AuthManager;
+  private readonly baseUrl: string;
 
-  constructor(auth: AuthManager) {
+  constructor(auth: AuthManager, instance: AnaplanInstanceConfig) {
     this.auth = auth;
+    this.baseUrl = `${instance.apiBaseUrl}/2/0`;
   }
 
   async patch<T = any>(path: string, body?: unknown): Promise<T> {
@@ -105,7 +107,7 @@ export class AnaplanClient {
         options.body = JSON.stringify(body);
       }
 
-      const response = await fetch(`${BASE_URL}${path}`, {
+      const response = await fetch(`${this.baseUrl}${path}`, {
         ...options,
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
@@ -146,7 +148,7 @@ export class AnaplanClient {
     extraHeaders?: Record<string, string>
   ): Promise<any> {
     const authHeaders = await this.auth.getAuthHeaders();
-    const response = await fetch(`${BASE_URL}${path}`, {
+    const response = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers: {
         ...authHeaders,
@@ -173,7 +175,7 @@ export class AnaplanClient {
         ...authHeaders,
       };
 
-      const response = await fetch(`${BASE_URL}${path}`, {
+      const response = await fetch(`${this.baseUrl}${path}`, {
         method,
         headers,
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -212,7 +214,7 @@ export class AnaplanClient {
         ...authHeaders,
       };
 
-      const response = await fetch(`${BASE_URL}${path}`, {
+      const response = await fetch(`${this.baseUrl}${path}`, {
         method,
         headers,
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),

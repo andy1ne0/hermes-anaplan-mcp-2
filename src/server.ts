@@ -26,7 +26,7 @@ import { registerTransactionalTools } from "./tools/transactional.js";
 import { ORCHESTRATION_GUIDE } from "./resources/orchestration-guide.js";
 
 export function createServer(auth: AuthManager = AuthManager.fromEnv()): McpServer {
-  const client = new AnaplanClient(auth);
+  const client = new AnaplanClient(auth, auth.getInstance());
 
   const workspaces = new WorkspacesApi(client);
   const models = new ModelsApi(client);

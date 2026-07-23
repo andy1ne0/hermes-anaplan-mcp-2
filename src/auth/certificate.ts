@@ -1,9 +1,8 @@
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 import type { AuthProvider, AuthResponse, TokenInfo } from "./types.js";
+import type { AnaplanInstanceConfig } from "./instances.js";
 
-const AUTH_URL = "https://auth.anaplan.com/token/authenticate";
-const REFRESH_URL = "https://auth.anaplan.com/token/refresh";
 const RANDOM_BYTES_LENGTH = 100;
 const AUTH_TIMEOUT_MS = 15000;
 
@@ -13,10 +12,13 @@ export class CertificateAuthProvider implements AuthProvider {
   private readonly certPath: string;
   private readonly keyPath: string;
   private readonly encodedDataFormat: CertificateEncodedDataFormat;
+  private readonly authUrl: string;
+  private readonly refreshUrl: string;
 
   constructor(
     certPath: string,
     keyPath: string,
+    instance: AnaplanInstanceConfig,
     encodedDataFormat: CertificateEncodedDataFormat = "v2"
   ) {
     if (!certPath) throw new Error("Anaplan certificate path is required");
@@ -27,6 +29,8 @@ export class CertificateAuthProvider implements AuthProvider {
     this.certPath = certPath;
     this.keyPath = keyPath;
     this.encodedDataFormat = encodedDataFormat;
+    this.authUrl = `${instance.authBaseUrl}/token/authenticate`;
+    this.refreshUrl = `${instance.authBaseUrl}/token/refresh`;
   }
 
   async authenticate(): Promise<TokenInfo> {
@@ -47,7 +51,7 @@ export class CertificateAuthProvider implements AuthProvider {
       ? { encodedDataFormat: "v2", encodedData, encodedSignedData }
       : { encodedData, encodedSignedData };
 
-    const response = await fetch(AUTH_URL, {
+    const response = await fetch(this.authUrl, {
       method: "POST",
       headers: {
         Authorization: `CACertificate ${encodedCert}`,
@@ -81,7 +85,7 @@ export class CertificateAuthProvider implements AuthProvider {
   }
 
   async refresh(tokenValue: string): Promise<TokenInfo> {
-    const response = await fetch(REFRESH_URL, {
+    const response = await fetch(this.refreshUrl, {
       method: "POST",
       headers: {
         Authorization: `AnaplanAuthToken ${tokenValue}`,

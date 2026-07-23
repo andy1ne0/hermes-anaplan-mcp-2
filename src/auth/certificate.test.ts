@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CertificateAuthProvider } from "./certificate.js";
+import { resolveInstanceConfig } from "./instances.js";
 import * as fs from "node:fs";
 import * as crypto from "node:crypto";
 
 vi.mock("node:fs");
 vi.mock("node:crypto");
+
+const US1 = resolveInstanceConfig({});
 
 describe("CertificateAuthProvider", () => {
   beforeEach(() => {
@@ -12,8 +15,8 @@ describe("CertificateAuthProvider", () => {
   });
 
   it("throws if cert path or key path is missing", () => {
-    expect(() => new CertificateAuthProvider("", "/key.pem")).toThrow("certificate");
-    expect(() => new CertificateAuthProvider("/cert.pem", "")).toThrow("private key");
+    expect(() => new CertificateAuthProvider("", "/key.pem", US1)).toThrow("certificate");
+    expect(() => new CertificateAuthProvider("/cert.pem", "", US1)).toThrow("private key");
   });
 
   it("uses v2 certificate payload by default", async () => {
@@ -50,7 +53,7 @@ describe("CertificateAuthProvider", () => {
       }),
     } as Response);
 
-    const provider = new CertificateAuthProvider("/cert.pem", "/key.pem");
+    const provider = new CertificateAuthProvider("/cert.pem", "/key.pem", US1);
     const token = await provider.authenticate();
 
     expect(token.tokenValue).toBe("certtoken");
@@ -105,7 +108,7 @@ describe("CertificateAuthProvider", () => {
       }),
     } as Response);
 
-    const provider = new CertificateAuthProvider("/cert.pem", "/key.pem", "v1");
+    const provider = new CertificateAuthProvider("/cert.pem", "/key.pem", US1, "v1");
     await provider.authenticate();
 
     const request = vi.mocked(fetch).mock.calls[0][1];

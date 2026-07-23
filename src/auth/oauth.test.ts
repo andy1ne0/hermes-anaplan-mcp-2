@@ -4,6 +4,9 @@ import {
   DeviceAuthorizationRequiredError,
   OAuthReauthorizationRequiredError,
 } from "./oauth.js";
+import { resolveInstanceConfig } from "./instances.js";
+
+const US1 = resolveInstanceConfig({});
 
 describe("OAuthProvider", () => {
   beforeEach(() => {
@@ -11,7 +14,7 @@ describe("OAuthProvider", () => {
   });
 
   it("throws if clientId is missing", () => {
-    expect(() => new OAuthProvider("", "secret")).toThrow("client ID");
+    expect(() => new OAuthProvider("", US1, "secret")).toThrow("client ID");
   });
 
   describe("device grant", () => {
@@ -27,7 +30,7 @@ describe("OAuthProvider", () => {
         }),
       } as Response);
 
-      const provider = new OAuthProvider("client-id");
+      const provider = new OAuthProvider("client-id", US1);
       let caught: DeviceAuthorizationRequiredError | undefined;
       try {
         await provider.authenticate();
@@ -66,7 +69,7 @@ describe("OAuthProvider", () => {
           }),
         } as Response);
 
-      const provider = new OAuthProvider("client-id");
+      const provider = new OAuthProvider("client-id", US1);
       await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
 
       const token = await provider.authenticate();
@@ -92,7 +95,7 @@ describe("OAuthProvider", () => {
           json: async () => ({ error: "authorization_pending" }),
         } as Response);
 
-      const provider = new OAuthProvider("client-id");
+      const provider = new OAuthProvider("client-id", US1);
       await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
       await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
     });
@@ -123,7 +126,7 @@ describe("OAuthProvider", () => {
           }),
         } as Response);
 
-      const provider = new OAuthProvider("client-id");
+      const provider = new OAuthProvider("client-id", US1);
       // Call 1: requests device code → throws
       await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
       // Call 2: polls → slow_down → throws (and doubles intervalMs)
@@ -147,7 +150,7 @@ describe("OAuthProvider", () => {
         }),
       } as Response);
 
-      const provider = new OAuthProvider("client-id");
+      const provider = new OAuthProvider("client-id", US1);
       let caught: DeviceAuthorizationRequiredError | undefined;
       try {
         await provider.authenticate();
@@ -171,11 +174,48 @@ describe("OAuthProvider", () => {
         }),
       } as Response);
 
-      const provider = new OAuthProvider("client-id");
+      const provider = new OAuthProvider("client-id", US1);
       await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
       expect(body.scope).toBe("openid profile email offline_access");
+    });
+
+    it("requests the device code from the selected instance's auth host", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          device_code: "dcode",
+          user_code: "UCODE",
+          verification_uri: "https://au1a.app2.anaplan.com/device",
+          expires_in: 600,
+          interval: 5,
+        }),
+      } as Response);
+
+      const au1 = resolveInstanceConfig({ ANAPLAN_INSTANCE: "au1" });
+      const provider = new OAuthProvider("client-id", au1);
+      await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
+
+      expect(fetchSpy.mock.calls[0][0]).toBe("https://au1a.app2.anaplan.com/oauth/device/code");
+    });
+
+    it("requests the device code from us1's instance-specific oauth host by default", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          device_code: "dcode",
+          user_code: "UCODE",
+          verification_uri: "https://iam.anaplan.com/activate",
+          expires_in: 600,
+          interval: 5,
+        }),
+      } as Response);
+
+      const provider = new OAuthProvider("client-id", US1);
+      await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
+
+      expect(fetchSpy.mock.calls[0][0]).toBe("https://us1a.app.anaplan.com/oauth/device/code");
     });
 
     it("clears pending state and requests fresh code on terminal error", async () => {
@@ -205,7 +245,7 @@ describe("OAuthProvider", () => {
           }),
         } as Response);
 
-      const provider = new OAuthProvider("client-id");
+      const provider = new OAuthProvider("client-id", US1);
       // Call 1: stores pending with dcode1 → throws
       await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
       // Call 2: polls → access_denied → clears pending → requests fresh code → throws with new URL
@@ -250,7 +290,7 @@ describe("OAuthProvider", () => {
           }),
         } as Response);
 
-      const provider = new OAuthProvider("client-id");
+      const provider = new OAuthProvider("client-id", US1);
       await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
 
       let caught: DeviceAuthorizationRequiredError | undefined;
@@ -277,7 +317,7 @@ describe("OAuthProvider", () => {
         }),
       } as Response);
 
-      const provider = new OAuthProvider("client-id", undefined, undefined, "my-refresh-token");
+      const provider = new OAuthProvider("client-id", US1, undefined, undefined, "my-refresh-token");
       const token = await provider.authenticate();
 
       expect(token.tokenValue).toBe("refreshed-tok");
@@ -308,7 +348,7 @@ describe("OAuthProvider", () => {
           }),
         } as Response);
 
-      const provider = new OAuthProvider("client-id", undefined, undefined, "my-refresh-token");
+      const provider = new OAuthProvider("client-id", US1, undefined, undefined, "my-refresh-token");
       await provider.authenticate(); // consumes initialRefreshToken
       // Second call: initialRefreshToken is null → falls through to device grant
       await expect(provider.authenticate()).rejects.toBeInstanceOf(DeviceAuthorizationRequiredError);
@@ -332,7 +372,7 @@ describe("OAuthProvider", () => {
           }),
         } as Response);
 
-      const provider = new OAuthProvider("client-id", undefined, undefined, "expired-refresh-token");
+      const provider = new OAuthProvider("client-id", US1, undefined, undefined, "expired-refresh-token");
 
       let caught: OAuthReauthorizationRequiredError | undefined;
       try {
@@ -359,7 +399,7 @@ describe("OAuthProvider", () => {
       }),
     } as Response);
 
-    const provider = new OAuthProvider("client-id", "client-secret");
+    const provider = new OAuthProvider("client-id", US1, "client-secret");
     const token = await provider.refresh("old-refresh");
 
     expect(token.tokenValue).toBe("new-oauth-token");
@@ -376,7 +416,7 @@ describe("OAuthProvider", () => {
       }),
     } as Response);
 
-    const provider = new OAuthProvider("client-id", "client-secret");
+    const provider = new OAuthProvider("client-id", US1, "client-secret");
     await provider.refresh("old-refresh");
 
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
@@ -396,7 +436,7 @@ describe("OAuthProvider", () => {
       }),
     } as Response);
 
-    const provider = new OAuthProvider("client-id", "client-secret", {
+    const provider = new OAuthProvider("client-id", US1, "client-secret", {
       authorizationCode: "my-auth-code",
       redirectUri: "https://example.com/callback",
     });

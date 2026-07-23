@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AnaplanClient } from "./client.js";
+import { resolveInstanceConfig } from "../auth/instances.js";
+
+const US1 = resolveInstanceConfig({});
 
 const mockAuthManager = {
   getAuthHeaders: vi.fn().mockResolvedValue({ Authorization: "AnaplanAuthToken test" }),
@@ -18,7 +21,7 @@ describe("AnaplanClient", () => {
       json: async () => ({ workspaces: [] }),
     } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     const result = await client.get("/workspaces");
 
     expect(fetch).toHaveBeenCalledWith(
@@ -38,7 +41,7 @@ describe("AnaplanClient", () => {
       json: async () => ({}),
     } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     await client.get("/test");
 
     expect(fetch).toHaveBeenCalledWith(
@@ -56,7 +59,7 @@ describe("AnaplanClient", () => {
       text: async () => "raw,csv,data",
     } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     const result = await client.getRaw("/files/123/chunks/0");
 
     expect(result).toBe("raw,csv,data");
@@ -69,7 +72,7 @@ describe("AnaplanClient", () => {
       arrayBuffer: async () => Uint8Array.from([0x50, 0x4b, 0x03, 0x04]).buffer,
     } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     const result = await client.getRawBytes("/files/123/chunks/0");
 
     expect(Buffer.isBuffer(result)).toBe(true);
@@ -81,7 +84,7 @@ describe("AnaplanClient", () => {
       .mockResolvedValueOnce({ ok: false, status: 429, headers: new Headers({ "Retry-After": "0" }), json: async () => ({}) } as Response)
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true }) } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     const result = await client.get("/test");
 
     expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -94,7 +97,7 @@ describe("AnaplanClient", () => {
       .mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({ message: "fail" }) } as Response)
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true }) } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     const result = await client.get("/test");
 
     expect(fetchSpy).toHaveBeenCalledTimes(3);
@@ -108,7 +111,7 @@ describe("AnaplanClient", () => {
       json: async () => ({ message: "server error" }),
     } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     await expect(client.get("/test")).rejects.toThrow();
   }, 30000);
 
@@ -119,7 +122,7 @@ describe("AnaplanClient", () => {
       json: async () => ({ task: { taskId: "t1" } }),
     } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     const result = await client.post("/actions", { localeName: "en_US" });
 
     expect(fetch).toHaveBeenCalledWith(
@@ -140,7 +143,7 @@ describe("AnaplanClient", () => {
       },
     } as Response);
 
-    const client = new AnaplanClient(mockAuthManager as any);
+    const client = new AnaplanClient(mockAuthManager as any, US1);
     const result = await client.delete("/workspaces/w/models/m/files/f");
     expect(result).toEqual({});
   });
@@ -156,7 +159,7 @@ describe("AnaplanClient", () => {
         }),
       } as Response);
 
-      const client = new AnaplanClient(mockAuthManager as any);
+      const client = new AnaplanClient(mockAuthManager as any, US1);
       const result = await client.getAll<any>("/test", "items");
       expect(result).toEqual([{ id: "1" }, { id: "2" }]);
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -186,7 +189,7 @@ describe("AnaplanClient", () => {
           }),
         } as Response);
 
-      const client = new AnaplanClient(mockAuthManager as any);
+      const client = new AnaplanClient(mockAuthManager as any, US1);
       const result = await client.getAll<any>("/test", "items");
       expect(result).toEqual([{ id: "1" }, { id: "2" }, { id: "3" }, { id: "4" }, { id: "5" }]);
       expect(fetch).toHaveBeenCalledTimes(3);
@@ -198,7 +201,7 @@ describe("AnaplanClient", () => {
         json: async () => ({ items: [{ id: "1" }] }),
       } as Response);
 
-      const client = new AnaplanClient(mockAuthManager as any);
+      const client = new AnaplanClient(mockAuthManager as any, US1);
       const result = await client.getAll<any>("/test", "items");
       expect(result).toEqual([{ id: "1" }]);
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -210,7 +213,7 @@ describe("AnaplanClient", () => {
         json: async () => ({}),
       } as Response);
 
-      const client = new AnaplanClient(mockAuthManager as any);
+      const client = new AnaplanClient(mockAuthManager as any, US1);
       const result = await client.getAll<any>("/test", "items");
       expect(result).toEqual([]);
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -222,7 +225,7 @@ describe("AnaplanClient", () => {
         json: async () => ({ users: [{ id: "u1" }] }),
       } as Response);
 
-      const client = new AnaplanClient(mockAuthManager as any);
+      const client = new AnaplanClient(mockAuthManager as any, US1);
       const result = await client.getAll<any>("/users", ["users", "user"]);
       expect(result).toEqual([{ id: "u1" }]);
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -245,7 +248,7 @@ describe("AnaplanClient", () => {
           }),
         } as Response);
 
-      const client = new AnaplanClient(mockAuthManager as any);
+      const client = new AnaplanClient(mockAuthManager as any, US1);
       await client.getAll<any>("/test?foo=bar", "items");
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining("/test?foo=bar&offset=2"),
