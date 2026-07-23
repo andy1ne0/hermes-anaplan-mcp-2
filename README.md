@@ -407,6 +407,8 @@ Some Anaplan operations are blocked by the Transactional API v2.0 on certain ten
 | `create_list` | Create a new list via Anaplan UI. Falls back to Playwright when the API returns 405<br>UI flow: Open model → Settings → Lists → Add List → fill name → Save |
 | `create_module` | Create a new module via Anaplan UI. Falls back to Playwright when the API returns 405<br>UI flow: Open model → Settings → Modules → Add Module → fill name → Save |
 
+Playwright is an **optional dependency** of this package (not installed by a plain `npm install`), so the server boots fine without it — it's only required if you actually turn this feature on.
+
 **Prerequisites:**
 
 ```bash
@@ -423,11 +425,34 @@ npm install playwright && npx playwright install chromium && npx playwright inst
 | `ANAPLAN_USERNAME` | Yes | Anaplan email (shared with API auth) |
 | `ANAPLAN_PASSWORD` | Yes | Anaplan password (shared with API auth) |
 
+**Enabling it in Claude Desktop:** add the variables above to the same `env` block used for auth, in your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "anaplan": {
+      "command": "node",
+      "args": ["<path>/dist/index.js"],
+      "env": {
+        "ANAPLAN_CLIENT_ID": "your-client-id",
+        "ANAPLAN_INSTANCE": "us1",
+        "ANAPLAN_PLAYWRIGHT_ENABLED": "true",
+        "ANAPLAN_USERNAME": "user@company.com",
+        "ANAPLAN_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+Leave `ANAPLAN_PLAYWRIGHT_ENABLED` unset (or `"false"`) to keep the 3 fallback tools purely advisory — they'll still register, but return a guidance message instead of driving a browser, and Playwright itself never needs to be installed.
+
 **Architecture:**
 
 - **Lazy browser lifecycle** — Chromium launches on first use, authenticates, and stays alive for subsequent calls. After 5 minutes of idle time the browser closes gracefully.
 - **API-first with automatic fallback** — tools attempt the REST API first; on HTTP 405 they invoke the Playwright UI automation. When Playwright is disabled, a guidance message tells the user to perform the action manually in the Anaplan UI.
 - **MFA support** — if MFA is required and running headless, the tool throws a clear error. Set `ANAPLAN_PLAYWRIGHT_HEADLESS=false` for interactive MFA entry.
+- **Not installed vs. disabled** — if `ANAPLAN_PLAYWRIGHT_ENABLED=true` but the `playwright` package isn't installed, the server still starts; only the fallback call itself fails, with an error telling you to run `npm install playwright`.
 
 **Important notes:**
 

@@ -20,7 +20,7 @@
  * Region: defaults to "au1". Override with ANAPLAN_REGION.
  * Credentials: reads ANAPLAN_USERNAME and ANAPLAN_PASSWORD from env.
  */
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import type { Browser, BrowserContext, Page } from "playwright";
 
 // Region → base URL mapping (matches client.ts regions)
 const REGION_BASE_URLS: Record<string, string> = {
@@ -311,6 +311,23 @@ export class AnaplanUI {
 
   // ─── Private ──────────────────────────────────────────────────────
 
+  /**
+   * Dynamically import playwright so it's only required when UI automation
+   * actually runs. Keeps the MCP server bootable in environments where the
+   * (optional) playwright dependency isn't installed.
+   */
+  private async loadPlaywright(): Promise<typeof import("playwright")> {
+    try {
+      return await import("playwright");
+    } catch (err: any) {
+      throw new Error(
+        "Playwright UI automation is enabled (ANAPLAN_PLAYWRIGHT_ENABLED=true) but the 'playwright' " +
+        "package is not installed in this environment. Install it with 'npm install playwright' or " +
+        "disable UI automation. (" + (err?.message ?? String(err)) + ")",
+      );
+    }
+  }
+
   private disabledMessage(action: string, detail: string): UIResult {
     return {
       success: false,
@@ -329,6 +346,7 @@ export class AnaplanUI {
 
     // Launch browser
     if (!this.browser || !this.browser.isConnected()) {
+      const { chromium } = await this.loadPlaywright();
       this.browser = await chromium.launch({
         headless: this.opts.headless,
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
